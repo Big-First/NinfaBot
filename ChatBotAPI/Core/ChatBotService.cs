@@ -9,57 +9,72 @@ namespace ChatBotAPI.Core;
 
 public class ChatBotService
 {
-    private readonly Tokenizer _tokenizer;
     private readonly BinaryTreeNeuralModel _model;
-    private const int MaxSequenceLength = 128;
-    private const int VocabSize = 50257;
-    private const string ModelSavePath = "Vocabularys/model_tree.json";
+    private readonly Tokenizer _tokenizer;
+    private static readonly string VocabFilePath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer.json");
+    private static readonly string ModelSavePath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys","model_tree.json"); // Confirmar nome
 
     public ChatBotService()
     {
-        var vocabPath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer.json");
-        if (!File.Exists(vocabPath))
-            throw new FileNotFoundException($"Tokenizer not found: {vocabPath}");
-
-        _tokenizer = new Tokenizer(vocabPath);
-        _model = new BinaryTreeNeuralModel(VocabSize, ModelSavePath);
-        _model.LoadModel();
-
+        _tokenizer = new Tokenizer(VocabFilePath);
+        _model = new BinaryTreeNeuralModel(_tokenizer, ModelSavePath);
         var trainer = new Trainer(_tokenizer, _model);
-        trainer.TrainAll();
-        _model.SaveModel();
-
+        trainer.TrainAll(); // Chamar o treinamento durante a inicialização
         Console.WriteLine("ChatBotService initialized!");
     }
 
-    public string GetResponse(string message, int maxNewTokens = 100)
+    public string GetResponse(string message)
     {
-        string normalizedMessage = message.Replace("What's", "What is").Replace("don't", "do not");
-        List<int> inputTokens = _tokenizer.Encode(normalizedMessage);
-        if (inputTokens.Count == 0 || inputTokens.All(id => id == 0))
-            return "Could not process the message.";
-
-        Console.WriteLine($"Input tokens: [{string.Join(",", inputTokens)}]");
-
-        int[] inputTensorShape = new int[] { 1, MaxSequenceLength };
-        long[] inputTensorData = new long[1 * MaxSequenceLength];
-        for (int i = 0; i < inputTokens.Count && i < MaxSequenceLength; i++)
-            inputTensorData[i] = inputTokens[i];
-        var inputTensor = new SimpleTensor<long>(inputTensorData, inputTensorShape);
-
-        List<int> generatedTokenIds = new List<int>();
-
-        for (int step = 0; step < maxNewTokens; step++)
+        if (string.IsNullOrWhiteSpace(message))
         {
-            int nextTokenId = _model.GenerateNextToken(inputTensor, inputTokens.Count, generatedTokenIds);
-            generatedTokenIds.Add(nextTokenId);
-
-            if (nextTokenId == 13 || nextTokenId == 50256)
-                break;
+            return "Please enter a message.";
         }
 
-        string response = _tokenizer.Decode(generatedTokenIds);
-        Console.WriteLine($"Generated response: {response}");
+        var inputTokens = _tokenizer.Encode(message);
+        Console.WriteLine($"Input tokens: [{string.Join(",", inputTokens)}]");
+
+        var generatedTokens = GenerateResponse(inputTokens);
+        var response = _tokenizer.Decode(generatedTokens);
+
+        if (string.IsNullOrWhiteSpace(response))
+        {
+            return "I couldn't generate a response. Try asking something else!";
+        }
+
         return response;
+    }
+
+    private List<int> GenerateResponse(List<int> inputTokens)
+    {
+        const int maxTokens = 20;
+        var generatedTokens = new List<int>();
+        bool hasPunctuation = false;
+
+        for (int i = 0; i < maxTokens; i++)
+        {
+            var token = _model.GenerateNextToken(inputTokens, generatedTokens);
+            if (token == -1)
+            {
+                Console.WriteLine("Generation failed, using fallback.");
+                break;
+            }
+
+            generatedTokens.Add(token);
+            Console.WriteLine($"Sampled token: {token} at position {i}");
+
+            if (_tokenizer.Decode(new List<int> { token }) is string decodedToken &&
+                (decodedToken == "." || decodedToken == "!" || decodedToken == "?"))
+            {
+                hasPunctuation = true;
+                break;
+            }
+        }
+
+        if (!hasPunctuation && generatedTokens.Count > 0)
+        {
+            generatedTokens.Add(13); // Adicionar um ponto final se não houver pontuação
+        }
+
+        return generatedTokens;
     }
 }

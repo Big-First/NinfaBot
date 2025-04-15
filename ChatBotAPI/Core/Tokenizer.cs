@@ -12,6 +12,7 @@ public class Tokenizer
     private readonly Dictionary<int, string> _idToToken;
     private readonly List<(string, string)> _merges;
     private const int EndOfTextTokenId = 50256;
+    private const int UnknownTokenId = 0;
 
     public Tokenizer(string tokenizerFilePath)
     {
@@ -21,7 +22,7 @@ public class Tokenizer
 
         string json = File.ReadAllText(tokenizerFilePath);
         var tokenizerData = JsonSerializer.Deserialize<TokenizerData>(json)
-                           ?? throw new InvalidOperationException("Failed to load tokenizer.json");
+                            ?? throw new InvalidOperationException("Failed to load tokenizer.json");
 
         foreach (var kvp in tokenizerData.model.vocab)
         {
@@ -34,7 +35,11 @@ public class Tokenizer
         }
 
         // Debug vocabulary
-        var wordsToCheck = new[] { "The", "capital", "France", "Paris", "Hello", "Hi", "How", "can", "I", "help", "you", "today", "?", "I'm", "What's", "'m", "'s", "," };
+        var wordsToCheck = new[]
+        {
+            "The", "capital", "France", "Paris", "Hello", "Hi", "How", "can", "I", "help", "you", "today", "?", "I'm",
+            "What's", "'m", "'s", ","
+        };
         foreach (var word in wordsToCheck)
         {
             bool hasWord = _tokenToId.ContainsKey(word);
@@ -64,10 +69,12 @@ public class Tokenizer
 
         var words = SplitWithPunctuation(text);
         Console.WriteLine($"Words extracted: [{string.Join(", ", words)}]");
-        return EncodeWords(words);
+        var tokenIds = EncodeWords(words);
+        tokenIds.Add(EndOfTextTokenId); // Adicionar token de fim de texto
+        return tokenIds;
     }
 
-    private List<string> SplitWithPunctuation(string text)
+    public List<string> SplitWithPunctuation(string text)
     {
         var result = new List<string>();
         var currentWord = new StringBuilder();
@@ -78,11 +85,6 @@ public class Tokenizer
             char c = text[i];
             if (c == '\'' && i + 1 < text.Length && char.IsLetter(text[i + 1]))
             {
-                if (currentWord.Length > 0)
-                {
-                    result.Add(currentWord.ToString());
-                    currentWord.Clear();
-                }
                 currentWord.Append(c);
                 inContraction = true;
             }
@@ -97,6 +99,7 @@ public class Tokenizer
                     result.Add(currentWord.ToString());
                     currentWord.Clear();
                 }
+
                 if (!char.IsWhiteSpace(c))
                     result.Add(c.ToString());
                 inContraction = false;
@@ -107,6 +110,7 @@ public class Tokenizer
                 inContraction = false;
             }
         }
+
         if (currentWord.Length > 0)
             result.Add(currentWord.ToString());
 
@@ -119,6 +123,15 @@ public class Tokenizer
 
         foreach (var word in words)
         {
+            // Tentar com "Ġ" para palavras que começam frase ou seguem espaço
+            string wordWithSpace = "Ġ" + word;
+            if (_tokenToId.TryGetValue(wordWithSpace, out int idWithSpace))
+            {
+                Console.WriteLine($"Mapped '{wordWithSpace}' → ID {idWithSpace}");
+                tokenIds.Add(idWithSpace);
+                continue;
+            }
+
             if (_tokenToId.TryGetValue(word, out int id))
             {
                 Console.WriteLine($"Mapped '{word}' → ID {id}");
@@ -127,10 +140,22 @@ public class Tokenizer
             else if (word.EndsWith(".") || word.EndsWith(",") || word.EndsWith("?") || word.EndsWith("!"))
             {
                 string baseWord = word.TrimEnd('.', ',', '?', '!');
-                if (_tokenToId.TryGetValue(baseWord, out id))
+                string baseWordWithSpace = "Ġ" + baseWord;
+                if (_tokenToId.TryGetValue(baseWordWithSpace, out int baseIdWithSpace))
                 {
-                    Console.WriteLine($"Mapped '{baseWord}' → ID {id}");
-                    tokenIds.Add(id);
+                    Console.WriteLine($"Mapped '{baseWordWithSpace}' → ID {baseIdWithSpace}");
+                    tokenIds.Add(baseIdWithSpace);
+                    string punct = word.Substring(baseWord.Length);
+                    if (_tokenToId.TryGetValue(punct, out int punctId))
+                    {
+                        Console.WriteLine($"Mapped '{punct}' → ID {punctId}");
+                        tokenIds.Add(punctId);
+                    }
+                }
+                else if (_tokenToId.TryGetValue(baseWord, out int baseId))
+                {
+                    Console.WriteLine($"Mapped '{baseWord}' → ID {baseId}");
+                    tokenIds.Add(baseId);
                     string punct = word.Substring(baseWord.Length);
                     if (_tokenToId.TryGetValue(punct, out int punctId))
                     {
@@ -159,7 +184,7 @@ public class Tokenizer
     {
         var tokenIds = new List<int>();
 
-        // Try contractions
+        // Tentar com contrações
         if (word.Contains("'"))
         {
             var parts = word.Split('\'', StringSplitOptions.RemoveEmptyEntries);
@@ -167,29 +192,44 @@ public class Tokenizer
             {
                 string first = parts[0];
                 string second = "'" + parts[1];
-                if (_tokenToId.TryGetValue(first, out int firstId))
+                string firstWithSpace = "Ġ" + first;
+                if (_tokenToId.TryGetValue(firstWithSpace, out int firstIdWithSpace))
+                {
+                    Console.WriteLine($"Mapped '{firstWithSpace}' → ID {firstIdWithSpace}");
+                    tokenIds.Add(firstIdWithSpace);
+                }
+                else if (_tokenToId.TryGetValue(first, out int firstId))
                 {
                     Console.WriteLine($"Mapped '{first}' → ID {firstId}");
                     tokenIds.Add(firstId);
                 }
+
                 if (_tokenToId.TryGetValue(second, out int secondId))
                 {
                     Console.WriteLine($"Mapped '{second}' → ID {secondId}");
                     tokenIds.Add(secondId);
                 }
+
                 if (tokenIds.Any())
                     return tokenIds;
             }
         }
 
-        // Try lowercase
-        if (_tokenToId.TryGetValue(word.ToLower(), out int id))
+        // Tentar com lowercase
+        string lowerWord = word.ToLower();
+        string lowerWordWithSpace = "Ġ" + lowerWord;
+        if (_tokenToId.TryGetValue(lowerWordWithSpace, out int idWithSpace))
         {
-            Console.WriteLine($"Mapped '{word.ToLower()}' → ID {id}");
+            Console.WriteLine($"Mapped '{lowerWordWithSpace}' → ID {idWithSpace}");
+            return new List<int> { idWithSpace };
+        }
+        else if (_tokenToId.TryGetValue(lowerWord, out int id))
+        {
+            Console.WriteLine($"Mapped '{lowerWord}' → ID {id}");
             return new List<int> { id };
         }
 
-        // Character-level fallback
+        // Fallback para caracteres individuais
         var tokens = word.ToCharArray().Select(c => c.ToString()).ToList();
         for (int i = 0; i < _merges.Count && tokens.Count > 1; i++)
         {
@@ -209,12 +249,13 @@ public class Tokenizer
                     j++;
                 }
             }
+
             tokens = newTokens;
         }
 
         foreach (var token in tokens)
         {
-            if (_tokenToId.TryGetValue(token, out id))
+            if (_tokenToId.TryGetValue(token, out int id)) // Declare 'id' here
             {
                 Console.WriteLine($"Mapped token '{token}' → ID {id}");
                 tokenIds.Add(id);
@@ -222,7 +263,7 @@ public class Tokenizer
             else
             {
                 Console.WriteLine($"Token not found: {token}, using <unk>.");
-                tokenIds.Add(0); // <unk>
+                tokenIds.Add(UnknownTokenId); // <unk>
             }
         }
 
@@ -237,6 +278,8 @@ public class Tokenizer
         var words = new List<string>();
         foreach (var id in tokenIds)
         {
+            if (id == EndOfTextTokenId)
+                break; // Parar no token de fim de texto
             if (_idToToken.TryGetValue(id, out string word))
             {
                 Console.WriteLine($"Decoding ID {id} → '{word}'");
@@ -272,7 +315,8 @@ public class Tokenizer
             }
             else
             {
-                if (needsSpace && !result.ToString().EndsWith(" "))
+                // Para tokens sem "Ġ", adicionar espaço se necessário
+                if (needsSpace && !result.ToString().EndsWith(" ") && !result.ToString().EndsWith("'"))
                     result.Append(" ");
                 result.Append(word);
                 needsSpace = true;
@@ -280,5 +324,10 @@ public class Tokenizer
         }
 
         return result.ToString().Trim();
+    }
+
+    public List<int> GetAllTokenIds()
+    {
+        return _tokenToId.Values.Where(id => id != EndOfTextTokenId && id != UnknownTokenId).ToList();
     }
 }

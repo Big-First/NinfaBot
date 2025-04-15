@@ -33,7 +33,9 @@ async Task HandleWebSocketAsync(System.Net.WebSockets.WebSocket webSocket, ChatB
         if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Text)
         {
             string input = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
+            Console.WriteLine($"Received: {input}");
             string response = chatService.GetResponse(input);
+            Console.WriteLine($"Response: {response}");
             byte[] responseBytes = System.Text.Encoding.UTF8.GetBytes(response);
             await webSocket.SendAsync(new ArraySegment<byte>(responseBytes), System.Net.WebSockets.WebSocketMessageType.Text, true, cancellationToken);
         }

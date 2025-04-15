@@ -176,6 +176,6 @@ J:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ChatBotAPI.genruntimeconfig.cache
 J:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ref\ChatBotAPI.dll
 <<<<<<< Updated upstream
 =======
-J:\NinfaBot\ChatBotAPI\bin\Debug\net8.0\Vocabularys\model_tree.json
 >>>>>>> Stashed changes
 J:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ChatBotAPI.sourcelink.json
+J:\NinfaBot\ChatBotAPI\bin\Debug\net8.0\Vocabularys\model_tree.json
