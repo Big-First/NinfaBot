@@ -1,6 +1,10 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+<<<<<<< Updated upstream
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp", "ConsoleApp\ConsoleApp.csproj", "{36CCAC3F-669C-4C35-9A2F-83611F6AC391}"
+=======
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp", "ConsoleApp\ConsoleApp.csproj", "{B410CA68-559D-4E7B-95F9-F427C9A3A1E3}"
+>>>>>>> Stashed changes
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -8,9 +12,16 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+<<<<<<< Updated upstream
 		{36CCAC3F-669C-4C35-9A2F-83611F6AC391}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{36CCAC3F-669C-4C35-9A2F-83611F6AC391}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{36CCAC3F-669C-4C35-9A2F-83611F6AC391}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{36CCAC3F-669C-4C35-9A2F-83611F6AC391}.Release|Any CPU.Build.0 = Release|Any CPU
+=======
+		{B410CA68-559D-4E7B-95F9-F427C9A3A1E3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B410CA68-559D-4E7B-95F9-F427C9A3A1E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B410CA68-559D-4E7B-95F9-F427C9A3A1E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B410CA68-559D-4E7B-95F9-F427C9A3A1E3}.Release|Any CPU.Build.0 = Release|Any CPU
+>>>>>>> Stashed changes
 	EndGlobalSection
 EndGlobal
