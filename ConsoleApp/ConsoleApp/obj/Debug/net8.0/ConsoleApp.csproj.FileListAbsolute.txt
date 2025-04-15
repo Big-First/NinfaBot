@@ -1,0 +1,15 @@
+J:\NinfaBot\ConsoleApp\ConsoleApp\bin\Debug\net8.0\ConsoleApp.exe
+J:\NinfaBot\ConsoleApp\ConsoleApp\bin\Debug\net8.0\ConsoleApp.deps.json
+J:\NinfaBot\ConsoleApp\ConsoleApp\bin\Debug\net8.0\ConsoleApp.runtimeconfig.json
+J:\NinfaBot\ConsoleApp\ConsoleApp\bin\Debug\net8.0\ConsoleApp.dll
+J:\NinfaBot\ConsoleApp\ConsoleApp\bin\Debug\net8.0\ConsoleApp.pdb
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\ConsoleApp.GeneratedMSBuildEditorConfig.editorconfig
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\ConsoleApp.AssemblyInfoInputs.cache
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\ConsoleApp.AssemblyInfo.cs
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\ConsoleApp.csproj.CoreCompileInputs.cache
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\ConsoleApp.sourcelink.json
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\ConsoleApp.dll
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\refint\ConsoleApp.dll
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\ConsoleApp.pdb
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\ConsoleApp.genruntimeconfig.cache
+J:\NinfaBot\ConsoleApp\ConsoleApp\obj\Debug\net8.0\ref\ConsoleApp.dll

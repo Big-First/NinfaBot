@@ -174,3 +174,4 @@ J:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\refint\ChatBotAPI.dll
 J:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ChatBotAPI.pdb
 J:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ChatBotAPI.genruntimeconfig.cache
 J:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ref\ChatBotAPI.dll
+J:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ChatBotAPI.sourcelink.json
