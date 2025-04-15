@@ -11,8 +11,8 @@ public class Tokenizer
     private readonly Dictionary<string, int> _tokenToId;
     private readonly Dictionary<int, string> _idToToken;
     private readonly List<(string, string)> _merges;
-    private const int EndOfTextTokenId = 50256;
-    private const int UnknownTokenId = 0;
+    public const int EndOfTextTokenId = 50256;
+    public const int UnknownTokenId = 0;
 
     public Tokenizer(string tokenizerFilePath)
     {
