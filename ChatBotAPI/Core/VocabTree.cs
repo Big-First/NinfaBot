@@ -2,6 +2,7 @@
 using System.IO;
 using System.Text.Json;
 
+namespace ChatBotAPI.Core;
 public class VocabTree
 {
     public Dictionary<string, int> Vocab { get; private set; }
