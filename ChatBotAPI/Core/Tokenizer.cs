@@ -28,27 +28,39 @@ namespace ChatBotAPI.Core
         {
             if (!File.Exists(configPath))
             {
-                throw new FileNotFoundException("Tokenizer config file not found.");
+                throw new FileNotFoundException($"Tokenizer config file not found at: {configPath}");
             }
 
             string json = File.ReadAllText(configPath);
-            var config = JsonSerializer.Deserialize<Dictionary<string, int>>(json);
-
-            int index = 0;
-            wordToIndex.Add(padToken, index);
-            indexToWord.Add(index, padToken);
-            index++;
-
-            wordToIndex.Add(unkToken, index);
-            indexToWord.Add(index, unkToken);
-            index++;
-
-            foreach (var pair in config)
+            try
             {
-                if (index >= vocabSize) break;
-                wordToIndex[pair.Key] = index;
-                indexToWord[index] = pair.Key;
+                var modelConfig = JsonSerializer.Deserialize<Model>(json);
+                if (modelConfig?.Vocab == null)
+                {
+                    throw new JsonException($"Tokenizer config is missing a valid 'Vocab' field at: {configPath}");
+                }
+
+                int index = 0;
+                wordToIndex.Add(padToken, index);
+                indexToWord.Add(index, padToken);
                 index++;
+
+                wordToIndex.Add(unkToken, index);
+                indexToWord.Add(index, unkToken);
+                index++;
+
+                foreach (var pair in modelConfig.Vocab)
+                {
+                    if (index >= vocabSize) break;
+                    if (string.IsNullOrWhiteSpace(pair.Key)) continue;
+                    wordToIndex[pair.Key] = index;
+                    indexToWord[index] = pair.Key;
+                    index++;
+                }
+            }
+            catch (JsonException ex)
+            {
+                throw new JsonException($"Failed to deserialize tokenizer config. Ensure the JSON contains 'Type' and 'Vocab' fields. Path: {configPath}, Content: {json}", ex);
             }
         }
 

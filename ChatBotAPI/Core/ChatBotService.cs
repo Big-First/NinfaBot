@@ -1,14 +1,17 @@
-﻿using System.Net.WebSockets;
+﻿using System;
+using System.Net.WebSockets;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ChatBotAPI.Core
 {
     public class ChatBotService
     {
-        private readonly Model model;
+        private readonly NeuralModel model;
         private readonly Tokenizer tokenizer;
 
-        public ChatBotService(Model model, Tokenizer tokenizer)
+        public ChatBotService(NeuralModel model, Tokenizer tokenizer)
         {
             this.model = model;
             this.tokenizer = tokenizer;

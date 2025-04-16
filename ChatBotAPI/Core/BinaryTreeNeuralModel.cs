@@ -1,6 +1,10 @@
-﻿namespace ChatBotAPI.Core
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace ChatBotAPI.Core
 {
-    public class BinaryTreeNeuralModel : Model
+    public class BinaryTreeNeuralModel : NeuralModel
     {
         private Node root;
         private readonly int embeddingSize;
@@ -8,10 +12,12 @@
         private double[,] embeddings;
         private readonly int maxSequenceLength;
         private readonly Random rand;
+        private readonly Model config; // New Model for vocab
 
-        public BinaryTreeNeuralModel(int vocabSize, int embeddingSize, int maxSequenceLength)
+        public BinaryTreeNeuralModel(Model modelConfig, int embeddingSize, int maxSequenceLength)
         {
-            this.vocabSize = vocabSize;
+            this.config = modelConfig ?? throw new ArgumentNullException(nameof(modelConfig));
+            this.vocabSize = modelConfig.Vocab?.Count ?? throw new ArgumentException("Model config missing Vocab");
             this.embeddingSize = embeddingSize;
             this.maxSequenceLength = maxSequenceLength;
             root = new Node(embeddingSize);
@@ -34,7 +40,7 @@
 
         private void InitializeTree(Node node, int depth, int maxDepth)
         {
-            if (depth >= maxDepth) return;
+            if (depth >= maxDepth || node == null) return;
             node.Left = new Node(embeddingSize);
             node.Right = new Node(embeddingSize);
             InitializeTree(node.Left, depth + 1, maxDepth);

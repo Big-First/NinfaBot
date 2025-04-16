@@ -1,30 +1,52 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using ChatBotAPI.Core;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Register services with dependency injection
-builder.Services.AddSingleton<Model>(provider => 
+builder.Services.AddSingleton<Model>(provider =>
 {
-    int vocabSize = 10000;
+    string tokenizerConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer.json");
+    if (!File.Exists(tokenizerConfigPath))
+    {
+        throw new FileNotFoundException($"Tokenizer config file not found at: {tokenizerConfigPath}");
+    }
+    string json = File.ReadAllText(tokenizerConfigPath);
+    return JsonSerializer.Deserialize<Model>(json) ?? throw new JsonException("Failed to deserialize model config");
+});
+builder.Services.AddSingleton<NeuralModel>(provider =>
+{
     int embeddingSize = 128;
     int maxSequenceLength = 50;
-    var model = new BinaryTreeNeuralModel(vocabSize, embeddingSize, maxSequenceLength);
-    return model;
+    var modelConfig = provider.GetRequiredService<Model>();
+    return new BinaryTreeNeuralModel(modelConfig, embeddingSize, maxSequenceLength);
 });
 builder.Services.AddSingleton<Tokenizer>(provider =>
 {
     int vocabSize = 10000;
     int maxSequenceLength = 50;
-    string tokenizerConfigPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer.json");
+    string tokenizerConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer.json");
+    if (!File.Exists(tokenizerConfigPath))
+    {
+        throw new FileNotFoundException($"Tokenizer config file not found at: {tokenizerConfigPath}");
+    }
     return new Tokenizer(tokenizerConfigPath, maxSequenceLength, vocabSize);
 });
 builder.Services.AddSingleton<ChatBotService>();
 builder.Services.AddSingleton<Trainer>(provider =>
 {
     int maxDepth = 5;
-    var model = provider.GetRequiredService<Model>();
+    var model = provider.GetRequiredService<NeuralModel>();
     var tokenizer = provider.GetRequiredService<Tokenizer>();
     return new Trainer(model, tokenizer, maxDepth);
 });
@@ -56,11 +78,11 @@ app.Map("/chat", async context =>
     }
     else
     {
-        context.Response.StatusCode = 400;
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
     }
 });
 
-app.Run();
+await app.RunAsync();
 
 async Task HandleWebSocketAsync(WebSocket webSocket, ChatBotService chatService, CancellationToken cancellationToken)
 {

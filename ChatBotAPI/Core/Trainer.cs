@@ -1,12 +1,15 @@
-﻿namespace ChatBotAPI.Core
+﻿using System;
+using System.Collections.Generic;
+
+namespace ChatBotAPI.Core
 {
     public class Trainer
     {
-        private readonly Model model;
+        private readonly NeuralModel model;
         private readonly Tokenizer tokenizer;
         private readonly int maxDepth;
 
-        public Trainer(Model model, Tokenizer tokenizer, int maxDepth)
+        public Trainer(NeuralModel model, Tokenizer tokenizer, int maxDepth)
         {
             this.model = model;
             this.tokenizer = tokenizer;
