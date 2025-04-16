@@ -64,6 +64,10 @@
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"
+            },
+            "TorchSharp": {
+              "target": "Package",
+              "version": "[0.105.0, )"
             }
           },
           "imports": [

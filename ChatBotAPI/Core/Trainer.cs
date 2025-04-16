@@ -9,7 +9,7 @@ namespace ChatBotAPI.Core
     {
         private readonly NeuralModel model;
         private readonly Tokenizer tokenizer; // Tokenizer está disponível aqui
-        private const bool LogTrainerSteps = false;
+        private const bool LogTrainerSteps = true;
 
         public Trainer(NeuralModel model, Tokenizer tokenizer)
         {

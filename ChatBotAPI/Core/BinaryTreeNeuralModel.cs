@@ -75,6 +75,7 @@ namespace ChatBotAPI.Core
         // Removido Initialize e InitializeTree
         public void Train(int[] input, int targetTokenIndex)
         {
+            Console.WriteLine($" -> Entering model.Train: InputLen={input?.Length}, Target={targetTokenIndex}"); // Log de Entrada
             // --- Verificações Iniciais ---
             if (input == null || input.Length == 0)
             {
@@ -320,6 +321,7 @@ namespace ChatBotAPI.Core
                     // Vamos manter assim por enquanto.
                 }
             } // Fim da atualização de pesos/bias
+            Console.WriteLine($" <- Exiting model.Train: InputLen={input?.Length}, Target={targetTokenIndex}"); // Log de Saída
         }
 
         // Método Predict Refatorado
