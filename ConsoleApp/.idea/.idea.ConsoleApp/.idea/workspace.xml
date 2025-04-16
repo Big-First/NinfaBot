@@ -5,7 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="195fafe4-cc8f-4487-ab0f-a15f10180148" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/ConsoleApp/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/ConsoleApp/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/Vocabularys/model_tree.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.exe" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.AssemblyInfo.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.sourcelink.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/apphost.exe" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/apphost.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ref/ChatBotAPI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ref/ChatBotAPI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/refint/ChatBotAPI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/refint/ChatBotAPI.dll" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,7 +75,7 @@
       <option name="presentableId" value="Default" />
       <updated>1744743673020</updated>
       <workItem from="1744743675016" duration="1049000" />
-      <workItem from="1744761628806" duration="359000" />
+      <workItem from="1744761628806" duration="1710000" />
     </task>
     <servers />
   </component>
