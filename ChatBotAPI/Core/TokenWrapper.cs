@@ -1,9 +1,12 @@
-﻿using System.Text.Json.Serialization;
-
-namespace ChatBotAPI.Core;
-
-public class TokenWrapper
+﻿namespace ChatBotAPI.Core
 {
-    public string Version { get; set; }
-    public Model Model { get; set; }
+    public class TokenWrapper
+    {
+        public int[] Token { get; set; }
+
+        public TokenWrapper(int[] token)
+        {
+            Token = token;
+        }
+    }
 }

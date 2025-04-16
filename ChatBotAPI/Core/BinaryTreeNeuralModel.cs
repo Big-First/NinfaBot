@@ -1,170 +1,173 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text.Json;
-
-namespace ChatBotAPI.Core
+﻿namespace ChatBotAPI.Core
 {
-    public class BinaryTreeNeuralModel
+    public class BinaryTreeNeuralModel : Model
     {
-        public Node _root;
-        public readonly string _modelFilePath;
-        public readonly Tokenizer _tokenizer;
-        public readonly Random _random = new Random();
+        private Node root;
+        private readonly int embeddingSize;
+        private readonly int vocabSize;
+        private double[,] embeddings;
+        private readonly int maxSequenceLength;
+        private readonly Random rand;
 
-        public BinaryTreeNeuralModel(Tokenizer tokenizer, string modelFilePath)
+        public BinaryTreeNeuralModel(int vocabSize, int embeddingSize, int maxSequenceLength)
         {
-            _tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
-            _modelFilePath = modelFilePath ?? throw new ArgumentNullException(nameof(modelFilePath));
-            LoadModel();
-        }
+            this.vocabSize = vocabSize;
+            this.embeddingSize = embeddingSize;
+            this.maxSequenceLength = maxSequenceLength;
+            root = new Node(embeddingSize);
+            rand = new Random();
 
-        public void Train(List<int> inputTokens, List<int> targetTokens)
-        {
-            if (inputTokens == null || inputTokens.Count == 0 || targetTokens == null || targetTokens.Count == 0)
+            embeddings = new double[vocabSize, embeddingSize];
+            for (int i = 0; i < vocabSize; i++)
             {
-                Console.WriteLine("Invalid training data, skipping.");
-                return;
-            }
-
-            inputTokens = inputTokens.Where(t => t != 50256).ToList();
-            targetTokens = targetTokens.Where(t => t != 50256).ToList();
-
-            if (inputTokens.Count == 0 || targetTokens.Count == 0)
-            {
-                Console.WriteLine("Training data is empty after cleaning, skipping.");
-                return;
-            }
-
-            if (_root == null)
-            {
-                _root = new Node { Token = inputTokens[0] };
-                Console.WriteLine($"Root node created with token: {inputTokens[0]}");
-            }
-
-            var current = _root;
-            int depth = 0;
-            const int maxDepth = 50;
-
-            foreach (var token in inputTokens)
-            {
-                if (depth++ > maxDepth)
+                for (int j = 0; j < embeddingSize; j++)
                 {
-                    Console.WriteLine("Max depth reached during training, stopping.");
-                    break;
+                    embeddings[i, j] = rand.NextDouble() * 0.2 - 0.1;
                 }
+            }
+        }
 
-                var nextNode = current.Children.FirstOrDefault(c => c.Token == token);
-                if (nextNode == null)
+        public override void Initialize(int maxDepth)
+        {
+            InitializeTree(root, 0, maxDepth);
+        }
+
+        private void InitializeTree(Node node, int depth, int maxDepth)
+        {
+            if (depth >= maxDepth) return;
+            node.Left = new Node(embeddingSize);
+            node.Right = new Node(embeddingSize);
+            InitializeTree(node.Left, depth + 1, maxDepth);
+            InitializeTree(node.Right, depth + 1, maxDepth);
+        }
+
+        public override double[] Predict(int[] input)
+        {
+            double[][] sequenceEmbeddings = new double[input.Length][];
+            for (int i = 0; i < input.Length; i++)
+            {
+                sequenceEmbeddings[i] = new double[embeddingSize];
+                for (int j = 0; j < embeddingSize; j++)
                 {
-                    nextNode = new Node { Token = token };
-                    current.Children.Add(nextNode);
+                    sequenceEmbeddings[i][j] = embeddings[input[i], j];
                 }
-
-                current = nextNode;
             }
 
-            // Adicionar a sequência de resposta completa
-            if (!current.ResponseSequences.Any(seq => seq.SequenceEqual(targetTokens)))
+            double[] contextVector = Attention(sequenceEmbeddings);
+
+            double[] output = new double[vocabSize];
+            Node current = root;
+            for (int i = 0; i < vocabSize; i++)
             {
-                current.ResponseSequences.Add(targetTokens);
-            }
-
-            Console.WriteLine(
-                $"Training with input: [{string.Join(",", inputTokens)}], target: [{string.Join(",", targetTokens)}]");
-            LogTree(_root); // Adicionar depuração da árvore
-            SaveModel();
-        }
-
-        public List<int> GenerateResponse(List<int> inputTokens)
-        {
-            if (_root == null)
-            {
-                Console.WriteLine("Model is empty, using fallback.");
-                return new List<int> { FallbackToken() };
-            }
-
-            var cleanedInput = inputTokens.Where(t => t != 50256).ToList();
-            if (cleanedInput.Count == 0)
-            {
-                Console.WriteLine("Input is empty after cleaning, using fallback.");
-                return new List<int> { FallbackToken() };
-            }
-
-            var current = _root;
-            int depth = 0;
-            const int maxDepth = 50;
-
-            // Buscar o caminho na árvore
-            foreach (var token in cleanedInput)
-            {
-                Console.WriteLine(
-                    $"Searching for token: {token}, current node: {(current != null ? current.Token : "null")}");
-                if (depth++ > maxDepth || current == null)
+                double sum = current.Bias;
+                for (int j = 0; j < embeddingSize; j++)
                 {
-                    Console.WriteLine("Max depth reached or node not found during generation, using fallback.");
-                    return new List<int> { FallbackToken() };
+                    sum += contextVector[j] * current.Weights[j];
                 }
-
-                current = current.Children.FirstOrDefault(c => c.Token == token);
+                output[i] = ReLU(sum);
+                current = rand.Next(2) == 0 ? current.Left : current.Right;
+                if (current == null) break;
             }
 
-            if (current == null || current.ResponseSequences == null || current.ResponseSequences.Count == 0)
-            {
-                Console.WriteLine("Sequence not found, using fallback.");
-                return new List<int> { FallbackToken() };
-            }
-
-            // Escolher aleatoriamente uma sequência de resposta completa
-            var selectedSequence = current.ResponseSequences[_random.Next(current.ResponseSequences.Count)];
-            Console.WriteLine($"Selected response sequence: [{string.Join(",", selectedSequence)}]");
-            return selectedSequence;
+            return Softmax(output);
         }
 
-        private int FallbackToken()
+        public override void Train(int[] input, int[] target)
         {
-            var allTokens = _tokenizer.GetAllTokenIds();
-            if (allTokens.Count == 0)
+            double[][] sequenceEmbeddings = new double[input.Length][];
+            for (int i = 0; i < input.Length; i++)
             {
-                Console.WriteLine("No tokens available in vocabulary, returning -1.");
-                return -1;
+                sequenceEmbeddings[i] = new double[embeddingSize];
+                for (int j = 0; j < embeddingSize; j++)
+                {
+                    sequenceEmbeddings[i][j] = embeddings[input[i], j];
+                }
             }
 
-            int token = allTokens[_random.Next(allTokens.Count)];
-            Console.WriteLine($"Fallback token selected: {token}");
-            return token;
+            double[] contextVector = Attention(sequenceEmbeddings);
+
+            double[] output = new double[vocabSize];
+            Node current = root;
+            for (int i = 0; i < vocabSize; i++)
+            {
+                double sum = current.Bias;
+                for (int j = 0; j < embeddingSize; j++)
+                {
+                    sum += contextVector[j] * current.Weights[j];
+                }
+                output[i] = ReLU(sum);
+                current = rand.Next(2) == 0 ? current.Left : current.Right;
+                if (current == null) break;
+            }
+            output = Softmax(output);
+
+            double learningRate = 0.01;
+            for (int i = 0; i < vocabSize; i++)
+            {
+                double error = target[i] - output[i];
+                current = root;
+                for (int j = 0; j < embeddingSize; j++)
+                {
+                    current.Weights[j] += learningRate * error * contextVector[j];
+                }
+                current.Bias += learningRate * error;
+
+                for (int k = 0; k < input.Length; k++)
+                {
+                    for (int j = 0; j < embeddingSize; j++)
+                    {
+                        embeddings[input[k], j] += learningRate * error * sequenceEmbeddings[k][j];
+                    }
+                }
+            }
         }
 
-        public void LogTree(Node node, int depth = 0)
-        {
-            if (node == null) return;
-            Console.WriteLine(new string(' ', depth * 2) + $"Token: {node.Token}");
-            foreach (var sequence in node.ResponseSequences)
-            {
-                Console.WriteLine(new string(' ', depth * 2 + 2) + $"Response: [{string.Join(",", sequence)}]");
-            }
+        private double ReLU(double x) => Math.Max(0, x);
 
-            foreach (var child in node.Children)
+        private double[] Softmax(double[] input)
+        {
+            double max = input.Max();
+            double sum = 0;
+            double[] result = new double[input.Length];
+            for (int i = 0; i < input.Length; i++)
             {
-                LogTree(child, depth + 1);
+                result[i] = Math.Exp(input[i] - max);
+                sum += result[i];
             }
+            for (int i = 0; i < input.Length; i++)
+            {
+                result[i] /= sum;
+            }
+            return result;
         }
 
-        public void LoadModel()
+        private double[] Attention(double[][] sequenceEmbeddings)
         {
-            if (File.Exists(_modelFilePath))
-            {
-                var json = File.ReadAllText(_modelFilePath);
-                _root = JsonSerializer.Deserialize<Node>(json);
-                Console.WriteLine("Model loaded from file.");
-            }
-        }
+            int seqLen = sequenceEmbeddings.Length;
+            double[] attentionScores = new double[seqLen];
+            double[] output = new double[embeddingSize];
 
-        public void SaveModel()
-        {
-            var json = JsonSerializer.Serialize(_root);
-            File.WriteAllText(_modelFilePath, json);
-            Console.WriteLine("Model saved to file.");
+            for (int i = 0; i < seqLen; i++)
+            {
+                attentionScores[i] = 0;
+                for (int j = 0; j < embeddingSize; j++)
+                {
+                    attentionScores[i] += sequenceEmbeddings[i][j] * sequenceEmbeddings[i][j];
+                }
+                attentionScores[i] /= Math.Sqrt(embeddingSize);
+            }
+
+            attentionScores = Softmax(attentionScores);
+
+            for (int i = 0; i < seqLen; i++)
+            {
+                for (int j = 0; j < embeddingSize; j++)
+                {
+                    output[j] += attentionScores[i] * sequenceEmbeddings[i][j];
+                }
+            }
+
+            return output;
         }
     }
 }

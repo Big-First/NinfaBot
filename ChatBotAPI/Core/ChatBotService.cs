@@ -1,47 +1,43 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.Net.WebSockets;
 using System.Text;
-using System.Text.Json;
 
-namespace ChatBotAPI.Core;
-
-public class ChatBotService
+namespace ChatBotAPI.Core
 {
-    private readonly BinaryTreeNeuralModel _model;
-    private readonly Tokenizer _tokenizer;
-    private static readonly string VocabFilePath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer.json");
-    private static readonly string ModelFilePath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys","model_tree.json"); // Confirmar nome
-
-    public ChatBotService()
+    public class ChatBotService
     {
-        _tokenizer = new Tokenizer(VocabFilePath);
-        _model = new BinaryTreeNeuralModel(_tokenizer, ModelFilePath);
-        var trainer = new Trainer(_tokenizer, _model);
-        trainer.TrainAll();
-        Console.WriteLine("ChatBotService initialized!");
-    }
+        private readonly Model model;
+        private readonly Tokenizer tokenizer;
 
-    public string GetResponse(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
+        public ChatBotService(Model model, Tokenizer tokenizer)
         {
-            return "Please enter a message.";
+            this.model = model;
+            this.tokenizer = tokenizer;
         }
 
-        var inputTokens = _tokenizer.Encode(message);
-        Console.WriteLine($"Input tokens: [{string.Join(",", inputTokens)}]");
-
-        var generatedTokens = _model.GenerateResponse(inputTokens);
-        var response = _tokenizer.Decode(generatedTokens);
-
-        if (string.IsNullOrWhiteSpace(response))
+        public async Task ProcessMessage(WebSocket webSocket, string message)
         {
-            return "I couldn't generate a response. Try asking something else!";
-        }
+            int[] inputTokens = tokenizer.Tokenize(message);
+            double[] output = model.Predict(inputTokens);
 
-        Console.WriteLine($"Response: {response}");
-        return response;
+            int[] predictedTokens = new int[inputTokens.Length];
+            for (int i = 0; i < inputTokens.Length; i++)
+            {
+                int maxIndex = 0;
+                double maxValue = output[0];
+                for (int j = 1; j < output.Length; j++)
+                {
+                    if (output[j] > maxValue)
+                    {
+                        maxValue = output[j];
+                        maxIndex = j;
+                    }
+                }
+                predictedTokens[i] = maxIndex;
+            }
+
+            string response = tokenizer.Detokenize(predictedTokens);
+            byte[] responseBytes = Encoding.UTF8.GetBytes(response);
+            await webSocket.SendAsync(new ArraySegment<byte>(responseBytes), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
     }
 }

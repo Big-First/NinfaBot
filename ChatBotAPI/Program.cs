@@ -1,12 +1,50 @@
+using System.Net.WebSockets;
+using System.Text;
 using ChatBotAPI.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Register services with dependency injection
+builder.Services.AddSingleton<Model>(provider => 
+{
+    int vocabSize = 10000;
+    int embeddingSize = 128;
+    int maxSequenceLength = 50;
+    var model = new BinaryTreeNeuralModel(vocabSize, embeddingSize, maxSequenceLength);
+    return model;
+});
+builder.Services.AddSingleton<Tokenizer>(provider =>
+{
+    int vocabSize = 10000;
+    int maxSequenceLength = 50;
+    string tokenizerConfigPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer.json");
+    return new Tokenizer(tokenizerConfigPath, maxSequenceLength, vocabSize);
+});
 builder.Services.AddSingleton<ChatBotService>();
+builder.Services.AddSingleton<Trainer>(provider =>
+{
+    int maxDepth = 5;
+    var model = provider.GetRequiredService<Model>();
+    var tokenizer = provider.GetRequiredService<Tokenizer>();
+    return new Trainer(model, tokenizer, maxDepth);
+});
 
 var app = builder.Build();
 
 app.UseWebSockets();
+
+// Train the model after services are built
+using (var scope = app.Services.CreateScope())
+{
+    var trainer = scope.ServiceProvider.GetRequiredService<Trainer>();
+    List<string> trainingData = new List<string>
+    {
+        "hello how are you",
+        "what is the weather like",
+        "tell me a joke"
+    };
+    trainer.Train(trainingData, epochs: 10);
+}
 
 app.Map("/chat", async context =>
 {
@@ -24,24 +62,21 @@ app.Map("/chat", async context =>
 
 app.Run();
 
-async Task HandleWebSocketAsync(System.Net.WebSockets.WebSocket webSocket, ChatBotService chatService, CancellationToken cancellationToken)
+async Task HandleWebSocketAsync(WebSocket webSocket, ChatBotService chatService, CancellationToken cancellationToken)
 {
     var buffer = new byte[1024 * 4];
-    while (webSocket.State == System.Net.WebSockets.WebSocketState.Open)
+    while (webSocket.State == WebSocketState.Open)
     {
         var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
-        if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Text)
+        if (result.MessageType == WebSocketMessageType.Text)
         {
-            string input = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
+            string input = Encoding.UTF8.GetString(buffer, 0, result.Count);
             Console.WriteLine($"Received: {input}");
-            string response = chatService.GetResponse(input);
-            Console.WriteLine($"Response: {response}");
-            byte[] responseBytes = System.Text.Encoding.UTF8.GetBytes(response);
-            await webSocket.SendAsync(new ArraySegment<byte>(responseBytes), System.Net.WebSockets.WebSocketMessageType.Text, true, cancellationToken);
+            await chatService.ProcessMessage(webSocket, input);
         }
-        else if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
+        else if (result.MessageType == WebSocketMessageType.Close)
         {
-            await webSocket.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "Closing", cancellationToken);
+            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cancellationToken);
         }
     }
 }

@@ -1,7 +1,9 @@
-﻿namespace ChatBotAPI.Core;
-
-public class Model
+﻿namespace ChatBotAPI.Core
 {
-    public string Type { get; set; }
-    public Dictionary<string, int> Vocab { get; set; }
+    public abstract class Model
+    {
+        public abstract void Initialize(int maxDepth);
+        public abstract double[] Predict(int[] input);
+        public abstract void Train(int[] input, int[] target);
+    }
 }
