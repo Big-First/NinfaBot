@@ -1,79 +1,79 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Diagnostics;
 
 namespace ChatBotAPI.Core
 {
     public class Trainer
     {
         private readonly NeuralModel model;
-        private readonly Tokenizer tokenizer;
-        private readonly int maxDepth;
+        private readonly Tokenizer tokenizer; // Tokenizer está disponível aqui
+        private const bool LogTrainerSteps = false;
 
-        public Trainer(NeuralModel model, Tokenizer tokenizer, int maxDepth)
-        {
-            this.model = model;
-            this.tokenizer = tokenizer;
-            this.maxDepth = maxDepth;
-        }
-
-        public Trainer(NeuralModel model, Tokenizer tokenizer /*, int maxDepth*/)
+        public Trainer(NeuralModel model, Tokenizer tokenizer)
         {
             this.model = model ?? throw new ArgumentNullException(nameof(model));
             this.tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
-            // this.maxDepth = maxDepth;
         }
 
         public void Train(List<string> trainingData, int epochs)
         {
-            // Removido model.Initialize(maxDepth); se não existir mais
+             // ... (código inicial, obter padTokenId) ...
+             int padTokenId = tokenizer.PadTokenId;
+             Console.WriteLine($"Starting training with PadTokenId = {padTokenId}...");
 
-            // Expõe PadTokenId no Tokenizer para poder usá-lo aqui
-            int padTokenId = tokenizer.PadTokenId; // Supondo que Tokenizer tenha essa propriedade pública
-
-            Console.WriteLine($"Starting training with PadTokenId = {padTokenId}...");
+            Stopwatch epochStopwatch = new Stopwatch();
 
             for (int epoch = 0; epoch < epochs; epoch++)
             {
-                Console.WriteLine($"Epoch {epoch + 1}/{epochs}");
-                int steps = 0;
+                epochStopwatch.Restart();
+                Console.WriteLine($"--- Epoch {epoch + 1}/{epochs} ---");
+                long totalStepsInEpoch = 0;
+                long skippedSteps = 0;
+
                 foreach (string sentence in trainingData)
                 {
-                    if (string.IsNullOrWhiteSpace(sentence)) continue;
-
+                    // ... (tokenizar sentença) ...
                     int[] tokenIds = tokenizer.Tokenize(sentence);
 
-                    // Para cada posição na sequência (exceto a última),
-                    // use os tokens até essa posição como entrada
-                    // e o token seguinte como alvo.
                     for (int i = 0; i < tokenIds.Length - 1; i++)
                     {
-                        // Ignora se o token atual ou o próximo for PAD
-                        if (tokenIds[i] == padTokenId || tokenIds[i+1] == padTokenId)
-                        {
-                            // Podemos parar aqui para esta sentença, pois chegamos ao padding
-                             // ou se quisermos treinar com PAD como entrada/saída, remova esta condição.
-                             // Por simplicidade, vamos parar no primeiro PAD encontrado.
-                             break;
+                        // ... (verificar padding) ...
+                        if (tokenIds[i] == padTokenId || tokenIds[i+1] == padTokenId) {
+                            skippedSteps += (tokenIds.Length - 1 - i);
+                            break;
                         }
 
-                        // A entrada são todos os tokens até a posição 'i' (inclusive)
                         int[] currentInput = tokenIds.Take(i + 1).ToArray();
-
-                        // O alvo é o token na posição 'i + 1'
                         int targetIndex = tokenIds[i + 1];
 
-                        // Chama o método Train do modelo com a assinatura correta
+                        // *** CORREÇÃO: Usa tokenizer.ActualVocabSize para verificar o limite ***
+                        if (targetIndex < 0 || targetIndex >= tokenizer.ActualVocabSize) {
+                             Console.WriteLine($"Warning: Invalid target index {targetIndex} (Vocab Size: {tokenizer.ActualVocabSize}) generated for input sequence (length {currentInput.Length}). Skipping step.");
+                             skippedSteps++;
+                             continue; // Pula esta etapa de treino específica
+                        }
+
+                        // ... (log opcional) ...
+                        if(LogTrainerSteps) {
+                            // Usa o Detokenize do tokenizer disponível
+                             Console.WriteLine($"  Epoch {epoch+1}, Step {totalStepsInEpoch+1}: InputLen={currentInput.Length}, Target={targetIndex} ({this.tokenizer.Detokenize(new int[]{targetIndex})})");
+                        }
+
                         model.Train(currentInput, targetIndex);
-                        steps++;
+                        totalStepsInEpoch++;
 
-                    } // fim do loop interno (posições na sentença)
-                } // fim do loop externo (sentenças)
-                Console.WriteLine($"Epoch {epoch + 1} completed with {steps} training steps.");
-                if (steps == 0) {
-                    Console.WriteLine("Warning: No valid training steps were performed in this epoch. Check training data and padding.");
+                    } // Fim loop interno
+                } // Fim loop externo
+
+                epochStopwatch.Stop();
+                Console.WriteLine($"--- Epoch {epoch + 1} completed in {epochStopwatch.ElapsedMilliseconds} ms. Total steps: {totalStepsInEpoch}, Skipped/Padding steps: {skippedSteps} ---");
+
+                 if (totalStepsInEpoch == 0 && trainingData.Any(s => !string.IsNullOrWhiteSpace(s))) {
+                    Console.WriteLine("Warning: No valid training steps were performed in this epoch.");
                 }
-
-            } // fim do loop de épocas
+            }
             Console.WriteLine("Training finished.");
         }
     }

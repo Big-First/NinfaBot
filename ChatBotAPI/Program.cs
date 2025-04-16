@@ -1,14 +1,12 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json; // Usado para JsonException, se necessário
-using ChatBotAPI.Core;
-using ChatBotAPI.Settings; // Assumindo que ModelSettings, Model, TokenWrapper, etc. estão aqui
-// using ChatBotAPI.Settings; // Remova se ModelSettings estiver em Core
+using ChatBotAPI.Core; // Namespace principal para suas classes
+// Remova 'using ChatBotAPI.Settings;' se ModelSettings está em Core
 using Microsoft.Extensions.Options;
-using Microsoft.AspNetCore.Builder; // Necessário para WebApplication, IApplicationBuilder
-using Microsoft.AspNetCore.Http; // Necessário para HttpContext, StatusCodes
-using Microsoft.Extensions.DependencyInjection; // Necessário para IServiceCollection, IServiceProvider
-using Microsoft.Extensions.Hosting; // Necessário para WebApplication.CreateBuilder
+// Para List<>
+// Para Path, File
+using ChatBotAPI.Settings; // Para Linq (Any, Select)
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,123 +16,119 @@ builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<M
 
 // *** 2. Registro de Serviços com DI ***
 
-// Registra o Model (lido do JSON via TokenWrapper) como Singleton
+// Model (lido do JSON via TokenWrapper)
 builder.Services.AddSingleton<Model>(provider =>
 {
     var settings = provider.GetRequiredService<ModelSettings>();
     string tokenizerConfigPath = Path.GetFullPath(settings.TokenizerConfigPath);
-
     Console.WriteLine($"Loading tokenizer config from: {tokenizerConfigPath}");
+    if (!File.Exists(tokenizerConfigPath)) throw new FileNotFoundException($"Tokenizer config file not found: {tokenizerConfigPath}");
 
-    if (!File.Exists(tokenizerConfigPath))
-    {
-        throw new FileNotFoundException($"Tokenizer config file not found at the specified path: {tokenizerConfigPath}");
-    }
     try
     {
         string json = File.ReadAllText(tokenizerConfigPath);
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true // Mantém isso para robustez na desserialização
-        };
-
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         var tokenWrapper = JsonSerializer.Deserialize<TokenWrapper>(json, options);
 
-        if (tokenWrapper == null) {
-             throw new JsonException($"Failed to deserialize tokenizer config file to TokenWrapper object. Path: {tokenizerConfigPath}");
-        }
-         // *** CORRIGIDO: Usa PascalCase para acessar propriedades C# ***
-        if (tokenWrapper.model == null) {
-             throw new JsonException($"'Model' field is missing or null inside the TokenWrapper object after deserialization. Path: {tokenizerConfigPath}");
-        }
-        // *** CORRIGIDO: Usa PascalCase para acessar propriedades C# ***
-        if (tokenWrapper.model.vocab == null) {
-             throw new JsonException($"'Vocab' field is missing or null in the nested Model object. Path: {tokenizerConfigPath}");
-        }
+        if (tokenWrapper?.model?.vocab == null) throw new JsonException($"Invalid token config structure or missing fields. Path: {tokenizerConfigPath}");
 
-        // *** CORRIGIDO: Usa PascalCase para acessar propriedades C# ***
-        Console.WriteLine($"TokenWrapper loaded successfully. Version: {tokenWrapper.version}. Nested Model Type: {tokenWrapper.model.type}. Vocabulary size: {tokenWrapper.model.vocab.Count}");
-
-        // *** CORRIGIDO: Usa PascalCase para acessar propriedades C# ***
-        return tokenWrapper.model; // Retorna o objeto Model de dentro do Wrapper
+        Console.WriteLine($"TokenWrapper loaded. Version: {tokenWrapper.version}. Model Type: {tokenWrapper.model.type}. Vocab size: {tokenWrapper.model.vocab.Count}");
+        return tokenWrapper.model;
     }
-    catch (JsonException ex) {
-         Console.Error.WriteLine($"JSON Deserialization Error for {tokenizerConfigPath}: {ex.Message} Path: {ex.Path}, Line: {ex.LineNumber}, Pos: {ex.BytePositionInLine}");
-        throw new JsonException($"Failed to deserialize tokenizer config file. Check JSON format and content. Path: {tokenizerConfigPath}", ex);
+    catch (Exception ex) when (ex is JsonException || ex is NotSupportedException)
+    {
+        Console.Error.WriteLine($"JSON Deserialization Error for {tokenizerConfigPath}: {ex.Message}");
+        throw; // Re-lança para indicar falha na inicialização
     }
-    catch (Exception ex) {
-        Console.Error.WriteLine($"Error reading tokenizer config file {tokenizerConfigPath}: {ex.Message}");
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error reading/processing tokenizer config {tokenizerConfigPath}: {ex.Message}");
         throw;
     }
 });
 
+// Tokenizer
 builder.Services.AddSingleton<Tokenizer>(provider =>
 {
     var settings = provider.GetRequiredService<ModelSettings>();
     var loadedModel = provider.GetRequiredService<Model>();
-
-    // *** CORRIGIDO: Usa PascalCase para acessar propriedades C# ***
-    return new Tokenizer(
-        loadedModel.vocab ?? new Dictionary<string, int>(), // Usa PascalCase (Vocab)
-        settings.MaxSequenceLength,
-        settings.VocabSizeLimit
-    );
+    // Garante que Vocab não seja null ao passar para o construtor
+    return new Tokenizer(loadedModel.vocab ?? new Dictionary<string, int>(), settings.MaxSequenceLength, settings.VocabSizeLimit);
 });
 
-// Corrigido: Registra NeuralModel como a implementação concreta
-// Se precisar da interface, registre como: builder.Services.AddSingleton<NeuralModel, BinaryTreeNeuralModel>(provider => ...);
-builder.Services.AddSingleton<BinaryTreeNeuralModel>(provider => // Registra o tipo concreto
+// NeuralModel (implementação concreta)
+builder.Services.AddSingleton<BinaryTreeNeuralModel>(provider => // Renomeie se mudou o nome da classe
 {
     var settings = provider.GetRequiredService<ModelSettings>();
-    // var loadedModel = provider.GetRequiredService<Model>(); // Não precisa mais do Model aqui
     var tokenizer = provider.GetRequiredService<Tokenizer>();
     int actualVocabSizeUsedByTokenizer = tokenizer.ActualVocabSize;
 
     Console.WriteLine($"Initializing Neural Model. Embedding Size: {settings.EmbeddingSize}, Sequence Length: {settings.MaxSequenceLength}, Actual Vocab Size: {actualVocabSizeUsedByTokenizer}");
 
-    // *** CORRIGIDO: Usa a variável com o tamanho real do vocabulário ***
-    var neuralModel = new BinaryTreeNeuralModel(
-        actualVocabSizeUsedByTokenizer, // Passa o tamanho real calculado
+    // Passa o tamanho real do vocabulário
+    var neuralModel = new BinaryTreeNeuralModel( // Use o nome correto da classe aqui
+        actualVocabSizeUsedByTokenizer,
         settings.EmbeddingSize,
         settings.MaxSequenceLength);
 
+     // Log de confirmação da inicialização dos pesos/bias
+     Console.WriteLine($"Model Initialized: VocabSize={actualVocabSizeUsedByTokenizer}, EmbeddingSize={settings.EmbeddingSize}");
+     // O log dos shapes já está dentro do construtor do modelo, não precisa repetir aqui.
+
     return neuralModel;
 });
+// Mapeia a interface para a implementação concreta
+builder.Services.AddSingleton<NeuralModel>(provider => provider.GetRequiredService<BinaryTreeNeuralModel>()); // Use o nome correto da classe aqui
 
-// Se outros serviços dependem da *interface* NeuralModel, adicione um registro que a aponte para a implementação:
-builder.Services.AddSingleton<NeuralModel>(provider => provider.GetRequiredService<BinaryTreeNeuralModel>());
+// ChatBotService
+builder.Services.AddSingleton<ChatBotService>();
 
-
-builder.Services.AddSingleton<ChatBotService>(); // Depende de NeuralModel (interface) e Tokenizer
-builder.Services.AddSingleton<Trainer>(provider => { // Depende de NeuralModel (interface) e Tokenizer
-    var settings = provider.GetRequiredService<ModelSettings>();
-    var model = provider.GetRequiredService<NeuralModel>(); // Resolve a interface
+// Trainer
+builder.Services.AddSingleton<Trainer>(provider => {
+    var model = provider.GetRequiredService<NeuralModel>(); // Pede a interface
     var tokenizer = provider.GetRequiredService<Tokenizer>();
-    return new Trainer(model, tokenizer, settings.MaxTreeDepth);
+    return new Trainer(model, tokenizer); // Construtor com 2 argumentos
 });
 
 
+// *** Construção do App ***
 var app = builder.Build();
 
-// Configuração do Pipeline de Requisição HTTP
-app.UseWebSockets();
+// *** Configuração do Pipeline de Requisição HTTP ***
+app.UseWebSockets(); // Essencial para WebSockets
 
-// Código de Treinamento
-using (var scope = app.Services.CreateScope())
+// *** TREINAMENTO NA INICIALIZAÇÃO (INCORPORADO) ***
+Console.WriteLine("--- Starting Training Phase ---");
+using (var scope = app.Services.CreateScope()) // Cria um escopo para resolver serviços
 {
     var trainer = scope.ServiceProvider.GetRequiredService<Trainer>();
-    var settings = scope.ServiceProvider.GetRequiredService<ModelSettings>();
-    List<string> trainingData = new List<string> { /* ... dados ... */ };
-    if (trainingData.Any()) {
-        Console.WriteLine($"Starting training with {trainingData.Count} samples for {settings.TrainingEpochs} epochs...");
-        trainer.Train(trainingData, epochs: settings.TrainingEpochs);
-        Console.WriteLine("Training finished.");
-    } else {
-        Console.WriteLine("No training data provided, skipping training.");
-    }
-}
+    var settings = scope.ServiceProvider.GetRequiredService<ModelSettings>(); // Obtém configurações (ex: número de épocas)
 
-// Mapeamento do Endpoint WebSocket
+    // 1. Obter os dados brutos (input, output) da função estática
+    List<(string input, string output)> rawTrainingData = GetTrainingData(); // Chama a função definida abaixo
+
+    // 2. Formatar os dados como sequências únicas para next-word prediction
+    List<string> trainingSequences = rawTrainingData
+        .Select(pair => $"{pair.input} {pair.output}") // Concatena input e output
+        .ToList();
+
+    // 3. Chamar o Trainer com as sequências formatadas
+    if (trainingSequences.Any())
+    {
+        Console.WriteLine($"Starting training with {trainingSequences.Count} combined sequences for {settings.TrainingEpochs} epochs...");
+        // O Trainer.cs ajustado processa List<string> com next-word prediction
+        trainer.Train(trainingSequences, epochs: settings.TrainingEpochs);
+        Console.WriteLine("--- Training Finished ---");
+    }
+    else
+    {
+        Console.WriteLine("No training data provided/generated, skipping training.");
+        Console.WriteLine("--- Training Phase Skipped ---");
+    }
+} // Fim do escopo de serviço para treinamento
+
+
+// *** Mapeamento de Endpoints ***
 app.Map("/chat", async context =>
 {
     if (context.WebSockets.IsWebSocketRequest)
@@ -143,7 +137,6 @@ app.Map("/chat", async context =>
         try
         {
             using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-            // Resolve ChatBotService para esta requisição
             var chatService = context.RequestServices.GetRequiredService<ChatBotService>();
             await HandleWebSocketAsync(webSocket, chatService, context.RequestAborted);
         }
@@ -163,54 +156,74 @@ app.Map("/chat", async context =>
     }
 });
 
-// Definição do Handler WebSocket
 async Task HandleWebSocketAsync(WebSocket webSocket, ChatBotService chatService, CancellationToken cancellationToken)
 {
     var buffer = new byte[1024 * 4];
     Console.WriteLine($"WebSocket connection {webSocket.GetHashCode()} established.");
-    try
-    {
+    try { /* ... (código do handler como antes) ... */
         while (webSocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
         {
             var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
 
-            if (result.MessageType == WebSocketMessageType.Text)
-            {
+            if (result.MessageType == WebSocketMessageType.Text) {
                 if (result.Count == 0) continue;
                 string input = Encoding.UTF8.GetString(buffer, 0, result.Count);
                 Console.WriteLine($"Connection {webSocket.GetHashCode()}: Received: {input}");
-
-                // Chama o serviço UMA VEZ
                 await chatService.ProcessMessage(webSocket, input);
                 Console.WriteLine($"Connection {webSocket.GetHashCode()}: Response potentially sent for: {input}");
             }
-            else if (result.MessageType == WebSocketMessageType.Close)
-            {
+            else if (result.MessageType == WebSocketMessageType.Close) {
                 Console.WriteLine($"Connection {webSocket.GetHashCode()}: WebSocket closing request received.");
                 await webSocket.CloseAsync(result.CloseStatus ?? WebSocketCloseStatus.NormalClosure, result.CloseStatusDescription, CancellationToken.None);
                 break;
             }
         }
     }
-    catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely) {
-        Console.WriteLine($"Connection {webSocket.GetHashCode()}: WebSocket connection closed prematurely.");
-    }
-    catch (OperationCanceledException) {
-        Console.WriteLine($"Connection {webSocket.GetHashCode()}: WebSocket operation cancelled.");
-        if (webSocket.State == WebSocketState.Open || webSocket.State == WebSocketState.CloseReceived) {
-            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Operation cancelled", CancellationToken.None);
-        }
-    }
-    catch (Exception ex) {
-        Console.Error.WriteLine($"Connection {webSocket.GetHashCode()}: Error in WebSocket handling: {ex.ToString()}");
-        if (webSocket.State == WebSocketState.Open || webSocket.State == WebSocketState.CloseReceived) {
-            await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, "Unexpected server error during communication", CancellationToken.None);
-        }
-    }
-    finally {
-        Console.WriteLine($"WebSocket connection {webSocket.GetHashCode()} processing finished. Final state: {webSocket.State}");
-    }
+     catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely) { Console.WriteLine($"Connection {webSocket.GetHashCode()}: WebSocket connection closed prematurely."); }
+     catch (OperationCanceledException) { Console.WriteLine($"Connection {webSocket.GetHashCode()}: WebSocket operation cancelled."); /* ... (fechar socket) ... */ }
+     catch (Exception ex) { Console.Error.WriteLine($"Connection {webSocket.GetHashCode()}: Error in WebSocket handling: {ex.ToString()}"); /* ... (fechar socket) ... */ }
+     finally { Console.WriteLine($"WebSocket connection {webSocket.GetHashCode()} processing finished. Final state: {webSocket.State}"); }
 }
 
+// Função estática para fornecer os dados de treinamento
+static List<(string input, string output)> GetTrainingData()
+{
+    // Cole aqui a sua lista de pares (input, output)
+    return new List<(string input, string output)>
+    {
+        ("The capital of France is", "Paris."),
+        ("The capital of Brazil is", "Brasília."),
+        ("The capital of Japan is", "Tokyo."),
+        ("The capital of Australia is", "Canberra."),
+        ("The capital of Canada is", "Ottawa."),
+        ("The capital of Germany is", "Berlin."),
+        ("The capital of Italy is", "Rome."),
+        ("Hello", "Hi! How can I help you today?"),
+        ("Hello", "Hello! What is on your mind?"),
+        ("Hello", "Hey there! Nice to see you!"),
+        ("Hi", "Hello! What is on your mind?"),
+        ("Hi", "Hi! How can I assist you?"),
+        ("Good morning", "Good morning to you too!"),
+        ("Hey there", "Hey! Nice to hear from you."),
+        ("What is the largest planet?", "Jupiter is the largest planet in our solar system."),
+        ("Who wrote Romeo and Juliet?", "William Shakespeare wrote Romeo and Juliet."),
+        ("What is the boiling point of water?", "The boiling point of water is 100 degrees Celsius at standard pressure."),
+        ("What is the tallest mountain?", "Mount Everest is the tallest mountain in the world."),
+        ("Who are you?", "I am a chatbot created to answer your questions!"),
+        ("What can you do?", "I can answer questions about capitals, general knowledge, and chat about various topics!"),
+        ("What is your name?", "I am Ninfa, nice to meet you!"),
+        ("Tell me something interesting", "Did you know that octopuses have three hearts?"),
+        ("I do not know what to ask", "No worries! How about asking me about a country's capital or a fun fact?"),
+        ("What is up?", "Not much, just hanging out in the digital world. What is up with you?"),
+        ("Help", "I am here to help! Try asking about a capital city or a general knowledge question."),
+        ("Tell me about France", "France is known for its culture, wine, and the Eiffel Tower in Paris."),
+        ("More about France", "France has a rich history with landmarks like the Louvre and Versailles."),
+        ("Tell me about Brazil", "Brazil is famous for Carnival, the Amazon rainforest, and soccer."),
+        ("More about Brazil", "Brazil's capital is Brasília, and it has vibrant cities like Rio de Janeiro.")
+    };
+}
+
+
+// *** Inicialização Final ***
 Console.WriteLine("Setup complete. Starting the web server...");
-await app.RunAsync(); // Inicia o servidor
+await app.RunAsync(); // Mantém o servidor rodando

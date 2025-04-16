@@ -181,7 +181,6 @@ J:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ChatBotAPI.sourcelink.json
 J:\NinfaBot\ChatBotAPI\bin\Debug\net8.0\Vocabularys\model_tree.json
 H:\GitHub\NinfaBot\ChatBotAPI\bin\Debug\net8.0\appsettings.Development.json
 H:\GitHub\NinfaBot\ChatBotAPI\bin\Debug\net8.0\appsettings.json
-H:\GitHub\NinfaBot\ChatBotAPI\bin\Debug\net8.0\Vocabularys\model_tree.json
 H:\GitHub\NinfaBot\ChatBotAPI\bin\Debug\net8.0\Vocabularys\tokenizer.json
 H:\GitHub\NinfaBot\ChatBotAPI\bin\Debug\net8.0\Vocabularys\vocab.json
 H:\GitHub\NinfaBot\ChatBotAPI\bin\Debug\net8.0\ChatBotAPI.staticwebassets.endpoints.json

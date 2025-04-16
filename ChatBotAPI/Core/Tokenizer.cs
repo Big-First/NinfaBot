@@ -12,7 +12,7 @@ namespace ChatBotAPI.Core
         public int PadTokenId { get; private set; }
         private readonly int maxSequenceLength;
         // vocabSizeLimit é o tamanho máximo permitido, não necessariamente o tamanho real
-        private readonly int vocabSizeLimit;
+        public readonly int vocabSizeLimit;
         private readonly string padToken = "<PAD>";
         private readonly string unkToken = "<UNK>";
         private readonly int padTokenId;
