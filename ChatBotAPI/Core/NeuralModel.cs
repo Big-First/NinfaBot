@@ -1,9 +1,8 @@
 ﻿namespace ChatBotAPI.Core
 {
-    public abstract class NeuralModel
+    public interface NeuralModel
     {
-        public abstract void Initialize(int maxDepth);
-        public abstract double[] Predict(int[] input);
-        public abstract void Train(int[] input, int[] target);
+        double[] Predict(int[] input);
+        void Train(int[] input, int targetTokenIndex);
     }
 }

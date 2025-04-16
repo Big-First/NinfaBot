@@ -1,8 +1,7 @@
-﻿namespace ChatBotAPI.Core
+﻿namespace ChatBotAPI.Core;
+
+public class Model
 {
-    public class Model
-    {
-        public string Type { get; set; }
-        public Dictionary<string, int> Vocab { get; set; }
-    }
+    public string type { get; set; }
+    public Dictionary<string, int> vocab { get; set; }
 }
