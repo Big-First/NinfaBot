@@ -208,6 +208,15 @@ static List<(string input, string output)> GetTrainingData()
     // Cole aqui a sua lista de pares (input, output)
     return new List<(string input, string output)>
     {
+        ("What is your purpose?", "I am here to chat and answer your questions."),
+        ("How old are you?", "I don't have an age, I am a computer program."),
+        ("Where do you live?", "I live in the cloud, on servers!"),
+        ("Thank you", "You're welcome!"),
+        ("Thanks", "No problem! Happy to help."),
+        ("Bye", "Goodbye! Have a nice day."),
+        ("See you later", "See you!"),
+        ("Good night", "Good night! Sleep well."),
+        ("Can you tell me a joke?", "Why don't scientists trust atoms? Because they make up everything!"),
         ("The capital of France is", "Paris."),
         ("The capital of Brazil is", "Brasília."),
         ("The capital of Japan is", "Tokyo."),

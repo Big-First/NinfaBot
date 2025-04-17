@@ -1,7 +1,9 @@
-﻿using System;
+﻿// Tokenizer.cs - AJUSTADO PARA tokenizer.json com <unk> ID 0 e ~50k tokens
+
+using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq; // Necessário para OrderBy
+using System.Linq;
 
 namespace ChatBotAPI.Core
 {
@@ -10,127 +12,127 @@ namespace ChatBotAPI.Core
         private readonly Dictionary<string, int> wordToIndex;
         private readonly Dictionary<int, string> indexToWord;
         public int PadTokenId { get; private set; }
+        public int UnkTokenId { get; private set; }
+        private readonly string unkToken = "<unk>"; // Token UNK padrão neste JSON
+        private readonly string padToken; // Será definido como <unk>
         private readonly int maxSequenceLength;
-        // vocabSizeLimit é o tamanho máximo permitido, não necessariamente o tamanho real
-        public readonly int vocabSizeLimit;
-        private readonly string padToken = "<PAD>";
-        private readonly string unkToken = "<UNK>";
-        public readonly int padTokenId;
-        public readonly int unkTokenId;
-        
-        // Construtor Refatorado
-        public Tokenizer(Dictionary<string, int>? loadedVocab, int maxSequenceLength, int vocabSizeLimit, string padToken = "<PAD>", string unkToken = "<UNK>")
-        {
-            // 1. Inicializa Dicionários PRIMEIRO
-            wordToIndex = new Dictionary<string, int>();
-            indexToWord = new Dictionary<int, string>();
+        public readonly int vocabSizeLimit; // Limite configurado
 
-            // 2. Atribui campos simples
+        public Tokenizer(Dictionary<string, int>? loadedVocab, int maxSequenceLength, int vocabSizeLimit)
+        {
             this.maxSequenceLength = maxSequenceLength;
             this.vocabSizeLimit = vocabSizeLimit;
-            this.padToken = padToken ?? throw new ArgumentNullException(nameof(padToken));
-            this.unkToken = unkToken ?? throw new ArgumentNullException(nameof(unkToken));
+            this.wordToIndex = new Dictionary<string, int>();
+            this.indexToWord = new Dictionary<int, string>(); // Key: ID, Value: Word
 
-            // 3. Adiciona tokens especiais e DEFINE IDs (incluindo PadTokenId PÚBLICO)
-            int index = 0;
-            // Adiciona PAD
-            Console.WriteLine($"DEBUG: Tokenizer Constructor - Adding PAD token: '{this.padToken}' with index {index}");
-            wordToIndex.Add(this.padToken, index);
-            indexToWord.Add(index, this.padToken);
-            this.padTokenId = index; // Define campo privado
-            this.PadTokenId = this.padTokenId; // *** Define propriedade PÚBLICA AQUI ***
-            Console.WriteLine($"DEBUG: Tokenizer Constructor - Public PadTokenId set to {this.PadTokenId}"); // Confirma
-            index++;
+            if (loadedVocab == null || loadedVocab.Count == 0) { /* ... throw ... */ }
 
-            // Adiciona UNK
-            Console.WriteLine($"DEBUG: Tokenizer Constructor - Adding UNK token: '{this.unkToken}' with index {index}");
-            wordToIndex.Add(this.unkToken, index);
-            indexToWord.Add(index, this.unkToken);
-            this.unkTokenId = index; // Define campo privado
-             Console.WriteLine($"DEBUG: Tokenizer Constructor - unkTokenId set to {this.unkTokenId}"); // Confirma
-            index++;
+            Console.WriteLine($"Initializing Tokenizer with {loadedVocab.Count} entries from loaded vocab.");
+            int foundUnkTokenId = -1;
 
-            // 4. Processa vocabulário carregado
-            if (loadedVocab != null)
+            // 1. Carrega TODOS os tokens do JSON usando TryAdd
+            foreach (var kvp in loadedVocab)
             {
-                Console.WriteLine($"DEBUG: Tokenizer Constructor - Processing {loadedVocab.Count} entries from loaded vocab.");
-                foreach (var word in loadedVocab.Keys)
-                {
-                    // Condição 1: Limite atingido? (vocabSizeLimit é grande, improvável)
-                    if (index >= this.vocabSizeLimit) {
-                        Console.WriteLine($"DEBUG: Vocab limit reached ({this.vocabSizeLimit})"); // Adicione log se suspeitar
-                        break;
-                    }
-                    // Condição 2: Palavra é vazia? (Improvável para todas as 740k)
-                    if (string.IsNullOrWhiteSpace(word)) {
-                        // Console.WriteLine("DEBUG: Skipping whitespace word"); // Log opcional
-                        continue;
-                    }
-                    // Condição 3: Palavra é PAD ou UNK? (Só deveria pular duas)
-                    if (word == this.padToken || word == this.unkToken) {
-                        // Console.WriteLine("DEBUG: Skipping special token"); // Log opcional
-                        continue;
-                    }
+                string word = kvp.Key;
+                int id = kvp.Value;
 
-                    // Condição 4: Palavra já existe? (Só aconteceria se o JSON tivesse duplicatas EXATAS)
-                    if (!wordToIndex.ContainsKey(word))
-                    {
-                        wordToIndex.Add(word, index);
-                        indexToWord.Add(index, word);
-                        // *** ESTE INCREMENTO ESTÁ SENDO CHAMADO? ***
-                        index++; // <-- Se esta linha nunca for atingida, ActualVocabSize ficará em 2.
-                    } else {
-                        // Console.WriteLine($"DEBUG: Word duplicate: {word}"); // Log opcional
-                    }
-                } // Fim do foreach
+                if (wordToIndex.Count >= this.vocabSizeLimit && !wordToIndex.ContainsKey(word)) {
+                    Console.WriteLine($"Warning: Vocab limit ({this.vocabSizeLimit}) reached. Skipping token '{word}'.");
+                    continue;
+                }
+
+                // *** USA TryAdd PARA EVITAR ERRO DE CHAVE DUPLICADA ***
+                bool addedWord = wordToIndex.TryAdd(word, id);
+                bool addedIndex = indexToWord.TryAdd(id, word); // Tenta adicionar ID -> Palavra
+
+                // Se o ID já existia, loga um aviso (não deveria acontecer com JSONs válidos)
+                if (!addedIndex && indexToWord.TryGetValue(id, out var existingWord)) {
+                     if (existingWord != word) { // Verifica se a palavra associada era diferente
+                          Console.WriteLine($"Warning: Token ID {id} already exists in indexToWord with word '{existingWord}'. Skipping new word '{word}'. Possible duplicate ID in JSON?");
+                     }
+                     // Se a palavra for a mesma, TryAdd falhou mas não há problema real.
+                }
+                if (!addedWord) {
+                     // Não deveria acontecer se a verificação ContainsKey acima for usada, mas como segurança:
+                     Console.WriteLine($"Warning: Word '{word}' already exists in wordToIndex. Skipping duplicate add.");
+                }
+
+
+                // Guarda o ID do token UNK esperado
+                if (word == this.unkToken) {
+                    foundUnkTokenId = id;
+                }
             }
-            else { Console.Error.WriteLine("Warning: Loaded vocabulary dictionary was null."); }
 
-            // 5. Define ActualVocabSize FINAL
-            this.ActualVocabSize = index; // Atualiza com o índice final
-            Console.WriteLine($"Tokenizer initialized. Actual Vocab Size: {this.ActualVocabSize}, PadTokenId = {this.PadTokenId}"); // Log final
+             // 2. Define PAD e UNK usando o token <unk> (ID 0)
+            if (foundUnkTokenId != -1) {
+                // ... (lógica para definir PadTokenId e UnkTokenId como foundUnkTokenId) ...
+                this.UnkTokenId = foundUnkTokenId;
+                this.PadTokenId = foundUnkTokenId; // Usando o mesmo ID de UNK para PAD
+                this.padToken = this.unkToken;
+                Console.WriteLine($"Using token '{this.unkToken}' (ID: {this.UnkTokenId}) for both UNK and PAD.");
+                 // Garante que o ID 0 esteja mapeado corretamente, mesmo que TryAdd tenha falhado antes
+                 if (!indexToWord.ContainsKey(this.PadTokenId)) {
+                     indexToWord.Add(this.PadTokenId, this.padToken);
+                     Console.WriteLine($"Ensured PadTokenId {this.PadTokenId} maps to '{this.padToken}'.");
+                 }
+
+            } else {
+                 // ... (lógica de fallback se <unk> não for encontrado) ...
+                  Console.Error.WriteLine($"CRITICAL WARNING: Token '{this.unkToken}' not found! Using fallback ID 0.");
+                  this.UnkTokenId = 0;
+                  this.PadTokenId = 0;
+                  this.padToken = "<PAD_FALLBACK>";
+                  // Tenta adicionar <unk> e <PAD_FALLBACK> com ID 0 se ainda não existir
+                  if (indexToWord.TryAdd(this.PadTokenId, this.padToken)) { // Tenta adicionar PAD
+                       wordToIndex.TryAdd(this.padToken, this.PadTokenId);
+                  }
+                   if (wordToIndex.TryAdd(this.unkToken, this.UnkTokenId)) { // Tenta adicionar UNK
+                        // Se adicionou UNK mas não PAD, garante que ID 0 mapeie para PAD no indexToWord
+                        if(!indexToWord.ContainsKey(this.UnkTokenId)) {
+                            indexToWord.Add(this.UnkTokenId, this.padToken); // Prioriza PAD para ID 0 se ambos falharam
+                        } else if (indexToWord[this.UnkTokenId] != this.padToken){
+                             Console.WriteLine($"Warning: Fallback added UNK '{this.unkToken}' to ID {this.UnkTokenId}, but could not map PAD to it.");
+                        }
+                   }
+            }
+
+            // 3. Define o tamanho real do vocabulário
+            this.ActualVocabSize = wordToIndex.Count;
+            Console.WriteLine($"Tokenizer initialized. Actual Vocab Size: {this.ActualVocabSize}, PadTokenId = {this.PadTokenId}, UnkTokenId = {this.UnkTokenId}");
+            // ... (verificação final de tamanho) ...
         }
 
-        public int GetMaxSequenceLength()
-        {
-            // Retorna o valor do campo privado que foi definido no construtor
-            return this.maxSequenceLength;
-        }
         // Propriedade para saber o tamanho real do vocabulário usado
         public int ActualVocabSize { get; private set; }
-
-
-        // Remover método LoadConfig, pois a lógica está agora no construtor
-        // private void LoadConfig(string configPath) { ... }
-
+        
+        // Tokenize e Detokenize podem permanecer os mesmos da versão anterior
+        // que usava o vocabulário grande, pois eles usam os PadTokenId/UnkTokenId definidos
+        // e fazem split por espaço (que ainda é uma simplificação do BPE).
         public int[] Tokenize(string text)
         {
-            string[] words = text.ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            List<int> tokens = new List<int>();
+             Console.WriteLine($"Warning: Using simplified space-based tokenization, not full BPE for '{text.Substring(0, Math.Min(30,text.Length))}'.");
+             string processedText = text.ToLowerInvariant(); // RoBERTa/BPE costuma ser case-sensitive, mas mantemos ToLower por simplicidade aqui
+             string[] words = processedText.Split(new[] { ' ', '\t', '\n', '\r'}, StringSplitOptions.RemoveEmptyEntries);
+             List<int> tokens = new List<int>();
 
             foreach (string word in words)
             {
-                if (wordToIndex.TryGetValue(word, out int index))
-                {
+                if (wordToIndex.TryGetValue(word, out int index)) {
                     tokens.Add(index);
-                }
-                else
-                {
-                    tokens.Add(this.unkTokenId); // Use o ID UNK armazenado
+                } else if (wordToIndex.TryGetValue("Ġ" + word, out index)) { // Tentativa de prefixo de espaço BPE
+                     tokens.Add(index);
+                } else {
+                    tokens.Add(this.UnkTokenId); // ID 0 neste caso
                 }
             }
-
-            // Padding
-            while (tokens.Count < maxSequenceLength)
-            {
-                tokens.Add(this.padTokenId); // Use o ID PAD armazenado
-            }
-            // Truncating
-            if (tokens.Count > maxSequenceLength)
-            {
+            // Padding / Truncating
+             int currentLength = tokens.Count;
+            if (currentLength < maxSequenceLength) {
+                tokens.AddRange(Enumerable.Repeat(this.PadTokenId, maxSequenceLength - currentLength)); // Usa ID 0
+            } else if (currentLength > maxSequenceLength) {
                 tokens = tokens.GetRange(0, maxSequenceLength);
             }
-
             return tokens.ToArray();
         }
 
@@ -139,20 +141,25 @@ namespace ChatBotAPI.Core
             List<string> words = new List<string>();
             foreach (int token in tokens)
             {
-                // Usa os IDs armazenados para ignorar tokens especiais
-                if (token != this.padTokenId && indexToWord.TryGetValue(token, out string word))
+                // Ignora PAD e UNK (ambos ID 0 neste caso)
+                if (token != this.PadTokenId && indexToWord.TryGetValue(token, out string? word))
                 {
-                     // Opcional: também pode querer ignorar UNK na detokenização
-                     // if (token != this.padTokenId && token != this.unkTokenId && indexToWord.TryGetValue(token, out string word))
+                    // Pós-processamento BPE simples
+                    word = word.Replace("Ġ", " ").Replace("</w>", ""); // Tenta recriar espaços
                     words.Add(word);
                 }
-                // Se quiser mostrar UNK explicitamente:
-                // else if (token == this.unkTokenId)
-                // {
-                //     words.Add(this.unkToken);
-                // }
             }
-            return string.Join(" ", words);
+             // Junta com espaço ou sem? Para BPE, juntar sem e depois limpar espaços duplos pode ser melhor.
+             string joined = string.Join("", words).Trim();
+             // Limpa espaços múltiplos que podem surgir da substituição do 'Ġ'
+             return System.Text.RegularExpressions.Regex.Replace(joined, @"\s+", " ");
+            // return string.Join(" ", words); // Alternativa
+        }
+
+         // Getter para MaxSequenceLength
+        public int GetMaxSequenceLength()
+        {
+            return this.maxSequenceLength;
         }
     }
 }
