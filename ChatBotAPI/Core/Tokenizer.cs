@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace ChatBotAPI.Core
 {
-    public class Tokenizer
+    public partial class Tokenizer
     {
         private readonly Dictionary<string, int> wordToIndex;
         private readonly Dictionary<int, string> indexToWord;

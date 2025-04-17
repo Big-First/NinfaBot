@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ChatBotAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4f4082252dfa958b1d546d708883c6a876cd3e95")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+946fef44acbfd80c939972ac6d15665424099b0a")]
 [assembly: System.Reflection.AssemblyProductAttribute("ChatBotAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ChatBotAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
