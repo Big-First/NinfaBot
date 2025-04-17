@@ -141,19 +141,19 @@ namespace ChatBotAPI.Core
             List<string> words = new List<string>();
             foreach (int token in tokens)
             {
-                // Ignora PAD e UNK (ambos ID 0 neste caso)
+                // Ignora PAD/UNK (ID 0)
                 if (token != this.PadTokenId && indexToWord.TryGetValue(token, out string? word))
                 {
-                    // Pós-processamento BPE simples
-                    word = word.Replace("Ġ", " ").Replace("</w>", ""); // Tenta recriar espaços
-                    words.Add(word);
+                    // Remove marcadores BPE conhecidos (pode precisar de mais)
+                    word = word.Replace("Ġ", "").Replace("</w>", ""); // Tenta limpar
+                    if (!string.IsNullOrEmpty(word)) // Adiciona apenas se não ficar vazio após limpar
+                    {
+                        words.Add(word);
+                    }
                 }
             }
-             // Junta com espaço ou sem? Para BPE, juntar sem e depois limpar espaços duplos pode ser melhor.
-             string joined = string.Join("", words).Trim();
-             // Limpa espaços múltiplos que podem surgir da substituição do 'Ġ'
-             return System.Text.RegularExpressions.Regex.Replace(joined, @"\s+", " ");
-            // return string.Join(" ", words); // Alternativa
+            // *** MUDANÇA: Tentar juntar com espaço ***
+            return string.Join(" ", words);
         }
 
          // Getter para MaxSequenceLength

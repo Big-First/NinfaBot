@@ -29,7 +29,7 @@ namespace ChatBotAPI.Core
             this.model.to(this.device);
             this.padTokenId = this.tokenizer.PadTokenId;
             this.maxGeneratedTokens = 30; // Limite padrão
-            this.samplingTemperature = 1.0f; // Temperatura padrão (1.0 = sem efeito, >1 aumenta aleatoriedade, <1 diminui)
+            this.samplingTemperature = 0.7f; // Temperatura padrão (1.0 = sem efeito, >1 aumenta aleatoriedade, <1 diminui)
 
             Console.WriteLine($"ChatBotService using device: {this.device.type}");
             Console.WriteLine($"ChatBotService configured with PadTokenId={this.padTokenId}, MaxGeneratedTokens={this.maxGeneratedTokens}, SamplingTemperature={this.samplingTemperature}");
