@@ -65,7 +65,7 @@
               "target": "Package",
               "version": "[6.6.2, )"
             },
-            "TorchSharp": {
+            "TorchSharp-cpu": {
               "target": "Package",
               "version": "[0.105.0, )"
             }

@@ -1,109 +1,90 @@
 ﻿using System;
-using System.Linq; // Para Max() e IndexOf() se usar Linq
+using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using TorchSharp; // Adiciona using
+using static TorchSharp.torch; // Adiciona using estático
 
 namespace ChatBotAPI.Core
 {
     public class ChatBotService
     {
-        // Mude a dependência para o tipo concreto se precisar acessar
-        // métodos específicos dele, ou mantenha a interface NeuralModel.
-        private readonly NeuralModel model; // Ou BinaryTreeNeuralModel model;
+        // Agora depende do modelo TorchSharp
+        private readonly TorchSharpModel model;
         private readonly Tokenizer tokenizer;
+        private readonly Device device; // Dispositivo para inferência
 
-        // Ajuste o construtor se mudou o tipo de 'model'
-        public ChatBotService(NeuralModel model, Tokenizer tokenizer)
+        public ChatBotService(TorchSharpModel model, Tokenizer tokenizer)
         {
             this.model = model ?? throw new ArgumentNullException(nameof(model));
             this.tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
+
+            // Determina o dispositivo (deve ser o mesmo usado no treino/modelo)
+            this.device = torch.cuda.is_available() ? torch.CUDA : torch.CPU;
+            this.model.to(this.device); // Garante que o modelo está no dispositivo correto
+            Console.WriteLine($"ChatBotService using device: {this.device.type}");
         }
 
         public async Task ProcessMessage(WebSocket webSocket, string message)
         {
-            if (string.IsNullOrWhiteSpace(message)) return; // Ignora mensagens vazias
+            if (string.IsNullOrWhiteSpace(message)) return;
 
             try
             {
-                // 1. Tokenizar a entrada
+                // 1. Tokenizar
                 int[] inputTokens = tokenizer.Tokenize(message);
+                if (inputTokens == null || inputTokens.Length == 0) return; // Evita erro se tokenização falhar
 
-                // 2. Obter a previsão do modelo (distribuição de probabilidade)
-                double[] outputProbabilities = model.Predict(inputTokens);
+                // Converte para tensor Int64 (Long)
+                long[] inputLongs = inputTokens.Select(id => (long)id).ToArray();
+                Tensor inputTensor = tensor(inputLongs, dtype: ScalarType.Int64).to(device);
 
-                // 3. Decodificação Gulosa (Greedy Decoding)
+                // 2. Executar Modelo para Predição
                 string responseMessage;
-                if (outputProbabilities == null || outputProbabilities.Length == 0)
+                // Coloca o modelo em modo de avaliação (desabilita dropout, etc.)
+                model.eval();
+                // Desabilita cálculo de gradientes para inferência (economia de memória/velocidade)
+                using (var noGrad = torch.no_grad())
                 {
-                    Console.Error.WriteLine("Model returned null or empty probabilities.");
-                    responseMessage = "[Error: Model prediction failed]";
-                }
-                else
-                {
-                    // Encontra o índice (ID do token) com a maior probabilidade
-                    int predictedTokenId = 0;
-                    double maxProb = -1.0;
-                    for (int i = 0; i < outputProbabilities.Length; i++)
-                    {
-                        if (outputProbabilities[i] > maxProb)
-                        {
-                            maxProb = outputProbabilities[i];
-                            predictedTokenId = i;
-                        }
-                    }
-                    // Alternativa com Linq (pode ser menos eficiente para arrays muito grandes):
-                    // double maxProb = outputProbabilities.Max();
-                    // int predictedTokenId = Array.IndexOf(outputProbabilities, maxProb);
+                    // Forward pass
+                    Tensor outputLogits = model.forward(inputTensor); // Shape: [vocabSize]
 
-                    // 4. Detokenizar APENAS o token previsto
-                    responseMessage = tokenizer.Detokenize(new int[] { predictedTokenId });
+                    // 3. Decodificação Gulosa (Greedy)
+                    // Pega o índice do logit máximo (ID do token mais provável)
+                    // argmax(-1) pega o máximo ao longo da última dimensão
+                    Tensor predictedIndexTensor = outputLogits.argmax(-1);
+                    long predictedTokenId = predictedIndexTensor.item<long>();
 
-                    // Log da previsão
+                     // Calcula a probabilidade (opcional, apenas para log)
+                     using var probabilities = torch.softmax(outputLogits, dim: 0);
+                     double maxProb = probabilities[predictedTokenId].item<double>();
+
+
+                    // 4. Detokenizar
+                    responseMessage = tokenizer.Detokenize(new int[] { (int)predictedTokenId }); // Converte long para int
+
                     Console.WriteLine($"Predicted token ID: {predictedTokenId}, Probability: {maxProb:P2}, Word: '{responseMessage}'");
 
-                    // Se a resposta detokenizada for vazia (ex: previu PAD ou UNK e Detokenize os ignora),
-                    // envie uma resposta padrão.
-                    if (string.IsNullOrWhiteSpace(responseMessage))
-                    {
-                         Console.WriteLine("Detokenized response is empty (maybe PAD/UNK?). Sending default response.");
-                         responseMessage = "[Response token empty]"; // Ou outra mensagem
+                    if (string.IsNullOrWhiteSpace(responseMessage)) {
+                        responseMessage = "[Response token empty]";
                     }
-                }
 
-                // 5. Enviar a resposta (a palavra/token único)
+                     // Libera tensores usados na inferência
+                     inputTensor.Dispose();
+                     outputLogits.Dispose();
+                     predictedIndexTensor.Dispose();
+                } // Fim do no_grad
+
+                // 5. Enviar Resposta
                 await SendMessage(webSocket, responseMessage);
 
             }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error processing message: {ex.ToString()}");
-                // Tenta enviar uma mensagem de erro para o cliente se o socket ainda estiver aberto
-                await SendMessage(webSocket, "[Error processing your request]");
-            }
+            catch (Exception ex) { /* ... tratamento de erro ... */ }
         }
 
-        // Função auxiliar para envio (evita repetição de código)
-        private async Task SendMessage(WebSocket webSocket, string message)
-        {
-            if (webSocket.State == WebSocketState.Open)
-            {
-                byte[] responseBytes = Encoding.UTF8.GetBytes(message);
-                try
-                {
-                    Console.WriteLine($"Response : {message}");
-                    await webSocket.SendAsync(new ArraySegment<byte>(responseBytes), WebSocketMessageType.Text, true, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                     Console.Error.WriteLine($"Error sending message via WebSocket: {ex.Message}");
-                     // Considere fechar o socket aqui se o envio falhar repetidamente
-                }
-            }
-             else {
-                 Console.WriteLine("Cannot send message, WebSocket is not open.");
-             }
-        }
+        // Função auxiliar SendMessage (como antes)
+        private async Task SendMessage(WebSocket webSocket, string message) { /* ... */ }
     }
 }

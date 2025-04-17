@@ -15,70 +15,87 @@ namespace ChatBotAPI.Core
         public readonly int vocabSizeLimit;
         private readonly string padToken = "<PAD>";
         private readonly string unkToken = "<UNK>";
-        private readonly int padTokenId;
-        private readonly int unkTokenId;
-
+        public readonly int padTokenId;
+        public readonly int unkTokenId;
+        
         // Construtor Refatorado
-        public Tokenizer(Dictionary<string, int> loadedVocab, int maxSequenceLength, int vocabSizeLimit, string padToken = "<PAD>", string unkToken = "<UNK>")
+        public Tokenizer(Dictionary<string, int>? loadedVocab, int maxSequenceLength, int vocabSizeLimit, string padToken = "<PAD>", string unkToken = "<UNK>")
         {
-            this.maxSequenceLength = maxSequenceLength;
-            this.vocabSizeLimit = vocabSizeLimit; // Limite máximo
-            this.padToken = padToken;
-            this.unkToken = unkToken;
-
+            // 1. Inicializa Dicionários PRIMEIRO
             wordToIndex = new Dictionary<string, int>();
             indexToWord = new Dictionary<int, string>();
 
-            // Inicializa com tokens especiais garantidos
+            // 2. Atribui campos simples
+            this.maxSequenceLength = maxSequenceLength;
+            this.vocabSizeLimit = vocabSizeLimit;
+            this.padToken = padToken ?? throw new ArgumentNullException(nameof(padToken));
+            this.unkToken = unkToken ?? throw new ArgumentNullException(nameof(unkToken));
+
+            // 3. Adiciona tokens especiais e DEFINE IDs (incluindo PadTokenId PÚBLICO)
             int index = 0;
+            // Adiciona PAD
+            Console.WriteLine($"DEBUG: Tokenizer Constructor - Adding PAD token: '{this.padToken}' with index {index}");
             wordToIndex.Add(this.padToken, index);
             indexToWord.Add(index, this.padToken);
-            this.padTokenId = index;
+            this.padTokenId = index; // Define campo privado
+            this.PadTokenId = this.padTokenId; // *** Define propriedade PÚBLICA AQUI ***
+            Console.WriteLine($"DEBUG: Tokenizer Constructor - Public PadTokenId set to {this.PadTokenId}"); // Confirma
             index++;
 
+            // Adiciona UNK
+            Console.WriteLine($"DEBUG: Tokenizer Constructor - Adding UNK token: '{this.unkToken}' with index {index}");
             wordToIndex.Add(this.unkToken, index);
             indexToWord.Add(index, this.unkToken);
-            this.unkTokenId = index;
+            this.unkTokenId = index; // Define campo privado
+             Console.WriteLine($"DEBUG: Tokenizer Constructor - unkTokenId set to {this.unkTokenId}"); // Confirma
             index++;
 
-            if (loadedVocab == null)
+            // 4. Processa vocabulário carregado
+            if (loadedVocab != null)
             {
-                // Decide how to handle this - maybe throw an exception or log a warning
-                // For now, we'll just proceed with only PAD and UNK
-                 Console.Error.WriteLine("Warning: Loaded vocabulary was null. Tokenizer initialized with only PAD and UNK tokens.");
-            }
-            else
-            {
-                // Adiciona vocabulário carregado, respeitando o limite e excluindo tokens especiais se já existirem
-                // Ordenar pode ajudar na consistência se o dicionário original não tiver ordem garantida,
-                // mas o Vocab do JSON geralmente não tem uma ordem intrínseca.
-                // Usar os índices do JSON original é geralmente preferível se eles existirem e forem significativos.
-                // Se o loadedVocab já tem os índices corretos (como no JSON), podemos usá-los,
-                // mas precisamos garantir que não colidam e estejam dentro do limite.
-
-                // Abordagem mais segura: Reconstruir índices a partir do vocabulário carregado
-                // (ignorando os índices originais do JSON para garantir consistência interna aqui)
+                Console.WriteLine($"DEBUG: Tokenizer Constructor - Processing {loadedVocab.Count} entries from loaded vocab.");
                 foreach (var word in loadedVocab.Keys)
                 {
-                    if (index >= this.vocabSizeLimit) break; // Respeita o limite
-                    if (string.IsNullOrWhiteSpace(word)) continue;
-                    if (word == this.padToken || word == this.unkToken) continue; // Evita duplicatas
-
-                    if (!wordToIndex.ContainsKey(word)) // Garante que não adicionamos duplicatas
-                    {
-                         wordToIndex[word] = index;
-                         indexToWord[index] = word;
-                         index++;
+                    // Condição 1: Limite atingido? (vocabSizeLimit é grande, improvável)
+                    if (index >= this.vocabSizeLimit) {
+                        Console.WriteLine($"DEBUG: Vocab limit reached ({this.vocabSizeLimit})"); // Adicione log se suspeitar
+                        break;
                     }
-                }
+                    // Condição 2: Palavra é vazia? (Improvável para todas as 740k)
+                    if (string.IsNullOrWhiteSpace(word)) {
+                        // Console.WriteLine("DEBUG: Skipping whitespace word"); // Log opcional
+                        continue;
+                    }
+                    // Condição 3: Palavra é PAD ou UNK? (Só deveria pular duas)
+                    if (word == this.padToken || word == this.unkToken) {
+                        // Console.WriteLine("DEBUG: Skipping special token"); // Log opcional
+                        continue;
+                    }
+
+                    // Condição 4: Palavra já existe? (Só aconteceria se o JSON tivesse duplicatas EXATAS)
+                    if (!wordToIndex.ContainsKey(word))
+                    {
+                        wordToIndex.Add(word, index);
+                        indexToWord.Add(index, word);
+                        // *** ESTE INCREMENTO ESTÁ SENDO CHAMADO? ***
+                        index++; // <-- Se esta linha nunca for atingida, ActualVocabSize ficará em 2.
+                    } else {
+                        // Console.WriteLine($"DEBUG: Word duplicate: {word}"); // Log opcional
+                    }
+                } // Fim do foreach
             }
+            else { Console.Error.WriteLine("Warning: Loaded vocabulary dictionary was null."); }
 
-             // O tamanho real do vocabulário usado pelo tokenizer
-             this.ActualVocabSize = index;
-             Console.WriteLine($"Tokenizer initialized. Actual Vocab Size: {this.ActualVocabSize}, Limit: {this.vocabSizeLimit}");
-
+            // 5. Define ActualVocabSize FINAL
+            this.ActualVocabSize = index; // Atualiza com o índice final
+            Console.WriteLine($"Tokenizer initialized. Actual Vocab Size: {this.ActualVocabSize}, PadTokenId = {this.PadTokenId}"); // Log final
         }
 
+        public int GetMaxSequenceLength()
+        {
+            // Retorna o valor do campo privado que foi definido no construtor
+            return this.maxSequenceLength;
+        }
         // Propriedade para saber o tamanho real do vocabulário usado
         public int ActualVocabSize { get; private set; }
 

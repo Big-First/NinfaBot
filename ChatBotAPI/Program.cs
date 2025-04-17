@@ -27,67 +27,85 @@ builder.Services.AddSingleton<Model>(provider =>
     try
     {
         string json = File.ReadAllText(tokenizerConfigPath);
+        // Opção PropertyNameCaseInsensitive ainda é útil se o JSON *puder* variar o case
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var tokenWrapper = JsonSerializer.Deserialize<TokenWrapper>(json, options);
+        var tokenWrapper = JsonSerializer.Deserialize<TokenWrapper>(json, options); // Desserializa para TokenWrapper
+        if (tokenWrapper != null) {
+            Console.WriteLine($"DEBUG: tokenWrapper.version = {tokenWrapper.version ?? "null"}");
+            Console.WriteLine($"DEBUG: tokenWrapper.model is null? {tokenWrapper.model == null}");
+            if (tokenWrapper.model != null) {
+                Console.WriteLine($"DEBUG: tokenWrapper.model.type = {tokenWrapper.model.type ?? "null"}");
+                Console.WriteLine($"DEBUG: tokenWrapper.model.vocab is null? {tokenWrapper.model.vocab == null}"); // *** O PONTO CRÍTICO ***
+                if (tokenWrapper.model.vocab != null) {
+                    Console.WriteLine($"DEBUG: tokenWrapper.model.vocab Count = {tokenWrapper.model.vocab.Count}");
+                } else {
+                    Console.WriteLine("DEBUG: tokenWrapper.model.vocab IS NULL after deserialization!");
+                }
+            } else {
+                Console.WriteLine("DEBUG: tokenWrapper.model IS NULL after deserialization!");
+            }
+        } else {
+            Console.WriteLine("DEBUG: tokenWrapper IS NULL after deserialization!");
+        }
 
-        if (tokenWrapper?.model?.vocab == null) throw new JsonException($"Invalid token config structure or missing fields. Path: {tokenizerConfigPath}");
-
+        // *** CORREÇÃO: Usa lowercase para acessar propriedades C# ***
         Console.WriteLine($"TokenWrapper loaded. Version: {tokenWrapper.version}. Model Type: {tokenWrapper.model.type}. Vocab size: {tokenWrapper.model.vocab.Count}");
-        return tokenWrapper.model;
+
+        // *** CORREÇÃO: Retorna a propriedade correta (lowercase) ***
+        return tokenWrapper.model; // Retorna o objeto Model aninhado
     }
     catch (Exception ex) when (ex is JsonException || ex is NotSupportedException)
-    {
-        Console.Error.WriteLine($"JSON Deserialization Error for {tokenizerConfigPath}: {ex.Message}");
-        throw; // Re-lança para indicar falha na inicialização
-    }
+    { /* ... log erro ... */ throw; }
     catch (Exception ex)
-    {
-        Console.Error.WriteLine($"Error reading/processing tokenizer config {tokenizerConfigPath}: {ex.Message}");
-        throw;
-    }
+    { /* ... log erro ... */ throw; }
 });
 
 // Tokenizer
+// *** Verifique também o registro do Tokenizer ***
 builder.Services.AddSingleton<Tokenizer>(provider =>
 {
     var settings = provider.GetRequiredService<ModelSettings>();
     var loadedModel = provider.GetRequiredService<Model>();
-    // Garante que Vocab não seja null ao passar para o construtor
+    // *** CORREÇÃO: Usa lowercase para acessar a propriedade C# ***
+    // Garante que a propriedade 'vocab' (lowercase) de loadedModel não seja null
     return new Tokenizer(loadedModel.vocab ?? new Dictionary<string, int>(), settings.MaxSequenceLength, settings.VocabSizeLimit);
 });
 
 // NeuralModel (implementação concreta)
-builder.Services.AddSingleton<BinaryTreeNeuralModel>(provider => // Renomeie se mudou o nome da classe
+builder.Services.AddSingleton<TorchSharpModel>(provider => // Registra o tipo concreto
 {
     var settings = provider.GetRequiredService<ModelSettings>();
     var tokenizer = provider.GetRequiredService<Tokenizer>();
-    int actualVocabSizeUsedByTokenizer = tokenizer.ActualVocabSize;
+    int actualVocabSize = tokenizer.ActualVocabSize;
+    int paddingIdx = tokenizer.PadTokenId; // Obtém o índice de padding
 
-    Console.WriteLine($"Initializing Neural Model. Embedding Size: {settings.EmbeddingSize}, Sequence Length: {settings.MaxSequenceLength}, Actual Vocab Size: {actualVocabSizeUsedByTokenizer}");
+    Console.WriteLine($"Initializing TorchSharp Model. Vocab Size: {actualVocabSize}, Embedding Size: {settings.EmbeddingSize}, Padding Idx: {paddingIdx}");
 
-    // Passa o tamanho real do vocabulário
-    var neuralModel = new BinaryTreeNeuralModel( // Use o nome correto da classe aqui
-        actualVocabSizeUsedByTokenizer,
+    // Passa os parâmetros necessários para o modelo TorchSharp
+    var torchModel = new TorchSharpModel(
+        actualVocabSize,
         settings.EmbeddingSize,
-        settings.MaxSequenceLength);
+        paddingIdx); // Passa o índice de padding
 
-     // Log de confirmação da inicialização dos pesos/bias
-     Console.WriteLine($"Model Initialized: VocabSize={actualVocabSizeUsedByTokenizer}, EmbeddingSize={settings.EmbeddingSize}");
-     // O log dos shapes já está dentro do construtor do modelo, não precisa repetir aqui.
-
-    return neuralModel;
+    return torchModel;
 });
-// Mapeia a interface para a implementação concreta
-builder.Services.AddSingleton<NeuralModel>(provider => provider.GetRequiredService<BinaryTreeNeuralModel>()); // Use o nome correto da classe aqui
 
 // ChatBotService
-builder.Services.AddSingleton<ChatBotService>();
+builder.Services.AddSingleton<ChatBotService>(provider => {
+    var model = provider.GetRequiredService<TorchSharpModel>(); // Pede o modelo TorchSharp
+    var tokenizer = provider.GetRequiredService<Tokenizer>();
+    return new ChatBotService(model, tokenizer);
+});
 
 // Trainer
 builder.Services.AddSingleton<Trainer>(provider => {
-    var model = provider.GetRequiredService<NeuralModel>(); // Pede a interface
-    var tokenizer = provider.GetRequiredService<Tokenizer>();
-    return new Trainer(model, tokenizer); // Construtor com 2 argumentos
+    var model = provider.GetRequiredService<TorchSharpModel>();
+    // Coloque um breakpoint AQUI
+    var tokenizer = provider.GetRequiredService<Tokenizer>(); // Pede o Tokenizer
+    Console.WriteLine($"DEBUG: Program.cs - Injecting Tokenizer into Trainer. Is null? {tokenizer == null}");// Para learning rate, se necessário
+    // Aqui você pode obter a taxa de aprendizado das configurações (settings.LearningRate por exemplo)
+    double learningRate = 0.001; // Ou use settings.LearningRate
+    return new Trainer(model, tokenizer, learningRate);
 });
 
 
@@ -155,7 +173,6 @@ app.Map("/chat", async context =>
         await context.Response.WriteAsync("This endpoint requires a WebSocket connection.");
     }
 });
-
 async Task HandleWebSocketAsync(WebSocket webSocket, ChatBotService chatService, CancellationToken cancellationToken)
 {
     var buffer = new byte[1024 * 4];
@@ -225,5 +242,8 @@ static List<(string input, string output)> GetTrainingData()
 
 
 // *** Inicialização Final ***
+// ... (Mapeamento de /chat e HandleWebSocketAsync como antes) ...
+// ... (Função GetTrainingData como antes) ...
+
 Console.WriteLine("Setup complete. Starting the web server...");
-await app.RunAsync(); // Mantém o servidor rodando
+await app.RunAsync();// Mantém o servidor rodando
