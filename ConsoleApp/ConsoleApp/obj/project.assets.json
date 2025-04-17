@@ -15,11 +15,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "J:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
+      "projectUniqueName": "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
       "projectName": "ConsoleApp",
-      "projectPath": "J:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
+      "projectPath": "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
       "packagesPath": "C:\\Users\\MPLopes\\.nuget\\packages\\",
-      "outputPath": "J:\\NinfaBot\\ConsoleApp\\ConsoleApp\\obj\\",
+      "outputPath": "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "H:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
