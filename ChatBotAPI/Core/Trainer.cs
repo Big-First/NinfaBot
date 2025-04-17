@@ -1,4 +1,4 @@
-﻿// Trainer.cs - VERSÃO CORRETA E COMPLETA
+﻿// Trainer.cs - AJUSTE PARA TESTE: Mover model.train() para DENTRO do foreach
 
 using System;
 using System.Collections.Generic;
@@ -19,7 +19,7 @@ namespace ChatBotAPI.Core
         private readonly Module<Tensor, Tensor, Tensor> lossFunction; // Função de perda
         private readonly Device device; // Dispositivo (CPU ou CUDA)
 
-        // --- CONSTRUTOR ---
+        // --- CONSTRUTOR (sem alterações) ---
         public Trainer(TorchSharpModel model, Tokenizer tokenizer, double learningRate = 0.001)
         {
             this.model = model ?? throw new ArgumentNullException(nameof(model));
@@ -32,157 +32,150 @@ namespace ChatBotAPI.Core
             this.lossFunction = CrossEntropyLoss(ignore_index: padTokenId).to(this.device);
             Console.WriteLine($"Trainer initialized loss function. Device: {this.device.type}. ignore_index (PadTokenId): {padTokenId}");
              if (tokenizer.ActualVocabSize <= 2) {
-                 Console.Error.WriteLine("CRITICAL WARNING: Trainer detected Tokenizer ActualVocabSize <= 2. Vocabulary likely failed to load or is invalid.");
+                 Console.Error.WriteLine("CRITICAL WARNING: Trainer detected Tokenizer ActualVocabSize <= 2...");
              }
         }
 
-        // --- MÉTODO Train ---
+        // --- MÉTODO Train (COM model.train() MOVIDO PARA TESTE) ---
         public void Train(List<string> trainingData, int epochs)
         {
             // Verificações iniciais
             if (trainingData == null || !trainingData.Any()) { Console.WriteLine("Training data is empty. Skipping training."); return; }
-            if (tokenizer.ActualVocabSize <= 2) { Console.Error.WriteLine("Cannot train: Tokenizer vocabulary is too small (Size <= 2). Check vocabulary loading."); return; }
+            if (tokenizer.ActualVocabSize <= 2) { Console.Error.WriteLine("Cannot train: Tokenizer vocabulary is too small (Size <= 2)."); return; }
 
             int padTokenId = tokenizer.PadTokenId;
             int vocabSize = tokenizer.ActualVocabSize;
-            int maxSeqLen = 50; // Valor padrão, ajuste se necessário ou use GetMaxSequenceLength()
+            int maxSeqLen = 50; // Valor padrão, ajuste
              try { maxSeqLen = tokenizer.GetMaxSequenceLength(); }
-             catch { Console.WriteLine($"Warning: Could not get MaxSequenceLength from tokenizer. Using fallback={maxSeqLen}."); }
+             catch { Console.WriteLine($"Warning: Could not get MaxSequenceLength. Using fallback={maxSeqLen}."); }
 
-            // Log inicial (APENAS UMA VEZ)
             Console.WriteLine($"Starting TorchSharp training on {device.type}. Epochs: {epochs}. Sentences: {trainingData.Count}. PadTokenId: {padTokenId}. VocabSize: {vocabSize}. MaxSeqLen: {maxSeqLen}.");
             Stopwatch epochStopwatch = new Stopwatch();
 
             // --- Loop Principal de Épocas ---
             for (int epoch = 0; epoch < epochs; epoch++)
             {
-                model.train(); // MODO TREINO
+                // ***** model.train() FOI REMOVIDO DAQUI *****
+
                 epochStopwatch.Restart();
                 Console.WriteLine($"--- Epoch {epoch + 1}/{epochs} ---");
-                float totalLoss = 0f; // Usa float para consistência
+                float totalLoss = 0f;
                 long totalStepsInEpoch = 0;
                 long skippedSteps = 0;
                 long sentenceCount = 0;
 
-                // --- Loop pelas Sentenças ---
-                try // Catch em volta do loop de sentenças
+                Console.WriteLine($"DEBUG: Epoch {epoch + 1}: Entering sentence loop...");
+                try
                 {
+                    // --- Loop pelas Sentenças ---
                     foreach (string sentence in trainingData)
                     {
-                        // Console.WriteLine($"DEBUG: Epoch {epoch + 1}, Sentence Loop Start. Processing sentence {sentenceCount + 1}..."); // Log Opcional
-                        sentenceCount++;
-                        int[] tokens = tokenizer.Tokenize(sentence);
-                        // Console.WriteLine($"DEBUG: Epoch {epoch + 1}, Sentence {sentenceCount}: Tokenization finished. Length={tokens.Length}."); // Log Opcional
+                         // Log no início do corpo do foreach
+                         // Console.WriteLine($"DEBUG: Epoch {epoch + 1}: INSIDE foreach - START body for sentenceCount = {sentenceCount}");
+                         sentenceCount++;
 
-                        if (tokens.Length <= 1) {
-                            Console.WriteLine($"AVISO: Epoch {epoch + 1}, Sent {sentenceCount} ('{sentence.Substring(0, Math.Min(sentence.Length, 30))}...') resulted in tokens.Length <= 1. Skipping.");
-                            skippedSteps += tokens.Length;
-                            continue;
-                        }
-                        // Console.WriteLine($"DEBUG: Epoch {epoch + 1}, Sentence {sentenceCount}: Entering inner step loop (i=1 to {tokens.Length - 1})..."); // Log Opcional
+                         // ***** Tentativa de chamar model.train() aqui dentro *****
+                         try {
+                             // Console.WriteLine($"DEBUG: Epoch {epoch+1}, Sent {sentenceCount}: Calling model.train() (Inside loop)..."); // Log Opcional
+                             model.train(); // Chama train para cada sentença neste teste
+                         } catch (Exception innerTrainEx) {
+                              Console.Error.WriteLine($"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                              Console.Error.WriteLine($"ERRO FATAL CHAMANDO model.train() DENTRO DO LOOP (Epoch {epoch + 1}, Sent {sentenceCount}): {innerTrainEx.Message}");
+                              Console.Error.WriteLine($"Detalhes: {innerTrainEx.ToString()}");
+                              Console.Error.WriteLine($"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                              // Decide se quer parar ou apenas pular esta sentença
+                              skippedSteps++;
+                              continue; // Pula para a próxima sentença se train() falhar aqui
+                         }
+                         // ***** Fim chamada interna model.train() *****
 
-                        // --- Loop Interno pelos Passos ---
-                        for (int i = 1; i < tokens.Length; i++)
-                        {
-                            if (tokens[i] == padTokenId) {
-                                skippedSteps++;
-                                continue;
-                            }
 
-                            long[] inputSequence = tokens.Take(i).Select(t => (long)t).ToArray();
-                            long targetTokenId = tokens[i];
+                         // Tokenizar
+                         int[] tokens = tokenizer.Tokenize(sentence);
 
-                            if (!inputSequence.Any()) {
-                                skippedSteps++;
-                                continue;
-                            }
+                         // Verificar tamanho mínimo
+                         if (tokens.Length <= 1) {
+                             Console.WriteLine($"AVISO: Epoch {epoch + 1}, Sent {sentenceCount} -> tokens.Length <= 1. Skipping.");
+                             skippedSteps++;
+                             continue; // PULA PARA A PRÓXIMA SENTENÇA
+                         }
 
-                            Tensor? inputTensor = null;
-                            Tensor? targetTensor = null;
-                            Tensor? outputLogits = null;
-                            Tensor? loss = null;
+                         // --- Loop Interno pelos Passos ---
+                         for (int i = 1; i < tokens.Length; i++)
+                         {
+                             // Pular se for padding
+                             if (tokens[i] == padTokenId) {
+                                 skippedSteps++;
+                                 continue; // PULA PARA O PRÓXIMO PASSO 'i'
+                             }
 
-                            try // <- TRY INTERNO DO PASSO DE TREINAMENTO
-                            {
-                                inputTensor = tensor(inputSequence, dtype: ScalarType.Int64).to(device);
-                                targetTensor = tensor(new long[] { targetTokenId }, dtype: ScalarType.Int64).to(device);
+                             // Preparar input/target
+                             long[] inputSequence = tokens.Take(i).Select(t => (long)t).ToArray();
+                             long targetTokenId = tokens[i];
+                             if (!inputSequence.Any()) { skippedSteps++; continue; }
 
-                                optimizer.zero_grad();
+                             // Declarar tensores
+                             Tensor? inputTensor = null;
+                             Tensor? targetTensor = null;
+                             Tensor? outputLogits = null;
+                             Tensor? loss = null;
 
-                                // Console.WriteLine($"DEBUG: Step i={i}: BEFORE model.forward"); // Log Opcional
-                                outputLogits = model.forward(inputTensor);
-                                // Console.WriteLine($"DEBUG: Step i={i}: AFTER model.forward. outputLogits is null = {outputLogits == null}"); // Log Opcional
+                             // Bloco TRY/CATCH/FINALLY para o Passo
+                             try
+                             {
+                                 // Criar tensores
+                                 inputTensor = tensor(inputSequence, dtype: ScalarType.Int64).to(device);
+                                 targetTensor = tensor(new long[] { targetTokenId }, dtype: ScalarType.Int64).to(device);
 
-                                if ((bool)(outputLogits == null)) {
-                                    Console.WriteLine($"WARN: Step i={i}: outputLogits IS NULL. Skipping step.");
-                                    skippedSteps++;
-                                    inputTensor?.Dispose(); targetTensor?.Dispose();
-                                    continue;
-                                }
+                                 // Zerar gradientes
+                                 optimizer.zero_grad();
 
-                                // Verificação de Shape (sem try-catch extra)
-                                // Console.WriteLine($"DEBUG: Step i={i}: Checking shape. Shape is [{string.Join(",", outputLogits.shape)}], Expecting [{vocabSize}]"); // Log Opcional
-                                bool isShapeOk = (outputLogits.dim() == 1 && outputLogits.shape[0] == vocabSize);
-                                // Console.WriteLine($"DEBUG: Step i={i}: Shape check result. isShapeOk = {isShapeOk}"); // Log Opcional
+                                 // Forward pass (Modelo já está em modo treino por causa da chamada no início do foreach)
+                                 outputLogits = model.forward(inputTensor);
 
-                                if (!isShapeOk) {
-                                    Console.WriteLine($"WARN: Step i={i}: Shape IS NOT OK (Got: [{string.Join(",", outputLogits.shape)}], Expected: [{vocabSize}]). Skipping step.");
-                                    skippedSteps++;
-                                    inputTensor?.Dispose(); targetTensor?.Dispose(); outputLogits?.Dispose();
-                                    continue;
-                                }
-                                // Console.WriteLine($"DEBUG: Step i={i}: Shape OK. Calculating loss..."); // Log Opcional
+                                 // Verificar nulidade e shape da saída
+                                 if ((bool)(outputLogits == null)) { /* ... log WARN e continue ... */ skippedSteps++; continue; }
+                                 bool isShapeOk = (outputLogits.dim() == 1 && outputLogits.shape[0] == vocabSize);
+                                 if (!isShapeOk) { /* ... log WARN e continue ... */ skippedSteps++; continue; }
 
-                                // Calcular Loss
-                                loss = lossFunction.forward(outputLogits!.unsqueeze(0), targetTensor!);
-                                float currentLoss = loss!.item<float>();
-                                // Console.WriteLine($"DEBUG: Step i={i}: Loss = {currentLoss:F6}. Performing backward/step..."); // Log Opcional
+                                 // Calcular Loss
+                                 loss = lossFunction.forward(outputLogits!.unsqueeze(0), targetTensor!);
+                                 float currentLoss = loss!.item<float>();
 
-                                // Backward e Step
-                                loss.backward();
-                                optimizer.step();
+                                 // Backward e Step
+                                 loss.backward();
+                                 optimizer.step();
 
-                                // Acumular e Contar
-                                totalLoss += currentLoss;
-                                totalStepsInEpoch++; // <-- Contador de passos válidos
-                                // Console.WriteLine($"DEBUG: Step i={i}: Step successful!"); // Log Opcional
+                                 // Acumular perda e contar passo válido
+                                 totalLoss += currentLoss;
+                                 totalStepsInEpoch++;
 
-                            }
-                            catch (Exception stepEx) // <- CATCH INTERNO DO PASSO DE TREINAMENTO
-                            {
-                                Console.Error.WriteLine($"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                                Console.Error.WriteLine($"ERRO FATAL (Catch Block) no passo i={i}, Sent {sentenceCount}, Epoch {epoch + 1}: {stepEx.Message}");
-                                Console.Error.WriteLine($"Detalhes da Exceção: {stepEx.ToString()}");
-                                // ... (logs de contexto adicionais) ...
-                                Console.Error.WriteLine($"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                                skippedSteps++;
-                            }
-                            finally
-                            {
-                               inputTensor?.Dispose(); targetTensor?.Dispose(); outputLogits?.Dispose(); loss?.Dispose();
-                            }
-                        } // Fim loop interno (passos)
-                        // Console.WriteLine($"DEBUG: Epoch {epoch + 1}, Sentence {sentenceCount}: Finished inner step loop."); // Log Opcional
+                             }
+                             catch (Exception stepEx) { /* ... log ERRO FATAL ... */ skippedSteps++; }
+                             finally { /* ... dispose tensores ... */ }
+                             // --- Fim do Bloco TRY/CATCH/FINALLY do Passo ---
 
-                    } // Fim loop externo (sentenças)
+                         } // --- Fim do Loop Interno (Passos 'i') ---
+
+                    } // --- Fim do Loop Externo (Sentenças 'foreach') ---
+
+                    Console.WriteLine($"DEBUG: Epoch {epoch + 1}: Finished sentence loop.");
                 }
-                catch (Exception exOuterLoop) // Pega erros no loop de sentenças (raro)
-                {
-                    Console.Error.WriteLine($"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                    Console.Error.WriteLine($"ERRO FATAL NO LOOP EXTERNO (Epoch {epoch + 1}, próximo à sentença {sentenceCount + 1}): {exOuterLoop.Message}");
-                    Console.Error.WriteLine($"Detalhes da Exceção: {exOuterLoop.ToString()}");
-                    Console.Error.WriteLine($"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                }
+                catch (Exception exOuterLoop) { /* ... log ERRO FATAL EXTERNO ... */ }
 
                 // --- Fim da Época ---
-                // Código para calcular e imprimir o resumo da época (NO LUGAR CORRETO)
+                // ***** Colocar em modo eval no fim da época, já que treinamos dentro do loop *****
+                 Console.WriteLine($"DEBUG: Epoch {epoch + 1}: Setting model.eval() at end of epoch.");
+                 model.eval();
+                // ***** Fim model.eval() *****
+
                 epochStopwatch.Stop();
                 float avgLoss = totalStepsInEpoch > 0 ? totalLoss / totalStepsInEpoch : 0f;
                 Console.WriteLine($"--- Epoch {epoch + 1} completed in {epochStopwatch.ElapsedMilliseconds} ms. Avg Loss: {avgLoss:F6}, Steps: {totalStepsInEpoch}, Skipped: {skippedSteps} ---");
 
             } // --- Fim do Loop Principal de Épocas ---
 
-            model.eval(); // MODO AVALIAÇÃO
+            // model.eval(); // Chamado no fim de cada época agora
             Console.WriteLine("Training finished.");
         } // --- Fim do Método Train ---
     } // --- Fim da Classe Trainer ---

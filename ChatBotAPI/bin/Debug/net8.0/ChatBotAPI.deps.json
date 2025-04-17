@@ -9,9 +9,8 @@
       "ChatBotAPI/1.0.0": {
         "dependencies": {
           "Microsoft.AspNetCore.OpenApi": "8.0.13",
-          "Microsoft.ML.OnnxRuntime": "1.21.0",
           "Swashbuckle.AspNetCore": "6.6.2",
-          "TorchSharp-cpu": "0.105.0"
+          "TorchSharp-cpu": "0.102.0"
         },
         "runtime": {
           "ChatBotAPI.dll": {}
@@ -25,20 +24,16 @@
           }
         }
       },
-      "libtorch-cpu/2.5.1": {
+      "libtorch-cpu/2.2.1.1": {
         "dependencies": {
-          "libtorch-cpu-linux-x64": "2.5.1",
-          "libtorch-cpu-osx-arm64": "2.5.1",
-          "libtorch-cpu-win-x64": "2.5.1"
+          "libtorch-cpu-linux-x64": "2.2.1.1",
+          "libtorch-cpu-osx-arm64": "2.2.1.1",
+          "libtorch-cpu-osx-x64": "2.2.1.1",
+          "libtorch-cpu-win-x64": "2.2.1.1"
         }
       },
-      "libtorch-cpu-linux-x64/2.5.1": {
+      "libtorch-cpu-linux-x64/2.2.1.1": {
         "runtimeTargets": {
-          "runtimes/linux-x64/native/libaoti_custom_ops.so": {
-            "rid": "linux-x64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
           "runtimes/linux-x64/native/libbackend_with_compiler.so": {
             "rid": "linux-x64",
             "assetType": "native",
@@ -96,14 +91,9 @@
           }
         }
       },
-      "libtorch-cpu-osx-arm64/2.5.1": {
+      "libtorch-cpu-osx-arm64/2.2.1.1": {
         "runtimeTargets": {
           "runtimes/osx-arm64/native/libc10.dylib": {
-            "rid": "osx-arm64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/osx-arm64/native/libomp.dylib": {
             "rid": "osx-arm64",
             "assetType": "native",
             "fileVersion": "0.0.0.0"
@@ -135,7 +125,71 @@
           }
         }
       },
-      "libtorch-cpu-win-x64/2.5.1": {
+      "libtorch-cpu-osx-x64/2.2.1.1": {
+        "runtimeTargets": {
+          "runtimes/osx-x64/native/libbackend_with_compiler.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libc10.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libfbjni.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libiomp5.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libjitbackend_test.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libpytorch_jni.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libshm.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libtorch.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libtorch_cpu.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libtorch_global_deps.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libtorch_python.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/osx-x64/native/libtorchbind_test.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "libtorch-cpu-win-x64/2.2.1.1": {
         "runtimeTargets": {
           "runtimes/win-x64/native/asmjit.dll": {
             "rid": "win-x64",
@@ -152,15 +206,25 @@
             "assetType": "native",
             "fileVersion": "0.0.0.0"
           },
+          "runtimes/win-x64/native/fbjni.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
           "runtimes/win-x64/native/libiomp5md.dll": {
             "rid": "win-x64",
             "assetType": "native",
-            "fileVersion": "5.0.2024.320"
+            "fileVersion": "5.0.2023.118"
           },
           "runtimes/win-x64/native/libiompstubs5md.dll": {
             "rid": "win-x64",
             "assetType": "native",
-            "fileVersion": "5.0.2024.320"
+            "fileVersion": "5.0.2023.118"
+          },
+          "runtimes/win-x64/native/pytorch_jni.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
           },
           "runtimes/win-x64/native/torch.dll": {
             "rid": "win-x64",
@@ -196,125 +260,6 @@
         }
       },
       "Microsoft.Extensions.ApiDescription.Server/6.0.5": {},
-      "Microsoft.ML.OnnxRuntime/1.21.0": {
-        "dependencies": {
-          "Microsoft.ML.OnnxRuntime.Managed": "1.21.0"
-        },
-        "runtimeTargets": {
-          "runtimes/android/native/onnxruntime.aar": {
-            "rid": "android",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/ios/native/onnxruntime.xcframework.zip": {
-            "rid": "ios",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/linux-arm64/native/libonnxruntime.so": {
-            "rid": "linux-arm64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/linux-arm64/native/libonnxruntime_providers_shared.so": {
-            "rid": "linux-arm64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/linux-x64/native/libonnxruntime.so": {
-            "rid": "linux-x64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/linux-x64/native/libonnxruntime_providers_shared.so": {
-            "rid": "linux-x64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/osx-arm64/native/libonnxruntime.dylib": {
-            "rid": "osx-arm64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/osx-x64/native/libonnxruntime.dylib": {
-            "rid": "osx-x64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/win-arm64/native/onnxruntime.dll": {
-            "rid": "win-arm64",
-            "assetType": "native",
-            "fileVersion": "1.21.25.307"
-          },
-          "runtimes/win-arm64/native/onnxruntime.lib": {
-            "rid": "win-arm64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/win-arm64/native/onnxruntime_providers_shared.dll": {
-            "rid": "win-arm64",
-            "assetType": "native",
-            "fileVersion": "1.21.25.307"
-          },
-          "runtimes/win-arm64/native/onnxruntime_providers_shared.lib": {
-            "rid": "win-arm64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/win-x64/native/onnxruntime.dll": {
-            "rid": "win-x64",
-            "assetType": "native",
-            "fileVersion": "1.21.25.307"
-          },
-          "runtimes/win-x64/native/onnxruntime.lib": {
-            "rid": "win-x64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/win-x64/native/onnxruntime_providers_shared.dll": {
-            "rid": "win-x64",
-            "assetType": "native",
-            "fileVersion": "1.21.25.307"
-          },
-          "runtimes/win-x64/native/onnxruntime_providers_shared.lib": {
-            "rid": "win-x64",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/win-x86/native/onnxruntime.dll": {
-            "rid": "win-x86",
-            "assetType": "native",
-            "fileVersion": "1.21.25.307"
-          },
-          "runtimes/win-x86/native/onnxruntime.lib": {
-            "rid": "win-x86",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          },
-          "runtimes/win-x86/native/onnxruntime_providers_shared.dll": {
-            "rid": "win-x86",
-            "assetType": "native",
-            "fileVersion": "1.21.25.307"
-          },
-          "runtimes/win-x86/native/onnxruntime_providers_shared.lib": {
-            "rid": "win-x86",
-            "assetType": "native",
-            "fileVersion": "0.0.0.0"
-          }
-        }
-      },
-      "Microsoft.ML.OnnxRuntime.Managed/1.21.0": {
-        "dependencies": {
-          "System.Memory": "4.5.5",
-          "System.Numerics.Tensors": "9.0.0"
-        },
-        "runtime": {
-          "lib/net8.0/Microsoft.ML.OnnxRuntime.dll": {
-            "assemblyVersion": "1.21.0.0",
-            "fileVersion": "1.21.0.0"
-          }
-        }
-      },
       "Microsoft.OpenApi/1.6.14": {
         "runtime": {
           "lib/netstandard2.0/Microsoft.OpenApi.dll": {
@@ -410,15 +355,7 @@
         }
       },
       "System.Memory/4.5.5": {},
-      "System.Numerics.Tensors/9.0.0": {
-        "runtime": {
-          "lib/net8.0/System.Numerics.Tensors.dll": {
-            "assemblyVersion": "9.0.0.0",
-            "fileVersion": "9.0.24.52809"
-          }
-        }
-      },
-      "TorchSharp/0.105.0": {
+      "TorchSharp/0.102.0": {
         "dependencies": {
           "Google.Protobuf": "3.21.9",
           "SharpZipLib": "1.4.0",
@@ -427,8 +364,8 @@
         },
         "runtime": {
           "lib/net6.0/TorchSharp.dll": {
-            "assemblyVersion": "0.105.0.0",
-            "fileVersion": "0.105.0.0"
+            "assemblyVersion": "0.102.0.0",
+            "fileVersion": "0.102.0.0"
           }
         },
         "runtimeTargets": {
@@ -442,6 +379,11 @@
             "assetType": "native",
             "fileVersion": "0.0.0.0"
           },
+          "runtimes/osx-x64/native/libLibTorchSharp.dylib": {
+            "rid": "osx-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
           "runtimes/win-x64/native/LibTorchSharp.dll": {
             "rid": "win-x64",
             "assetType": "native",
@@ -449,10 +391,10 @@
           }
         }
       },
-      "TorchSharp-cpu/0.105.0": {
+      "TorchSharp-cpu/0.102.0": {
         "dependencies": {
-          "TorchSharp": "0.105.0",
-          "libtorch-cpu": "2.5.1"
+          "TorchSharp": "0.102.0",
+          "libtorch-cpu": "2.2.1.1"
         }
       }
     }
@@ -470,33 +412,40 @@
       "path": "google.protobuf/3.21.9",
       "hashPath": "google.protobuf.3.21.9.nupkg.sha512"
     },
-    "libtorch-cpu/2.5.1": {
+    "libtorch-cpu/2.2.1.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-EIBjDZ7jsjB+xZUvZebHsGUjqvayDVEJajR2yjrr+qeysoj/fzvsxZxX58w7zCDwk6ceTqeTZRjXKPMaAshc9A==",
-      "path": "libtorch-cpu/2.5.1",
-      "hashPath": "libtorch-cpu.2.5.1.nupkg.sha512"
+      "sha512": "sha512-2i/921U+xpKQm9dmvbTBcG0L1pBnDornontVNwd6xojdik7xBXMBFFvFLCEiYyE8/7om3BLQ7w3JIfBTLegLow==",
+      "path": "libtorch-cpu/2.2.1.1",
+      "hashPath": "libtorch-cpu.2.2.1.1.nupkg.sha512"
     },
-    "libtorch-cpu-linux-x64/2.5.1": {
+    "libtorch-cpu-linux-x64/2.2.1.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-lLvbhnvoOZh8cVgPc+sRrMRGfrKc96P+kpwWKkF+MgQNpTC2g5QMxDJ+hPwv/BsmuHnF3zVFppA5hPVDg3DsnQ==",
-      "path": "libtorch-cpu-linux-x64/2.5.1",
-      "hashPath": "libtorch-cpu-linux-x64.2.5.1.nupkg.sha512"
+      "sha512": "sha512-ARlZi8v8LIaeR7gaj0gIyx34512TUWDOlyaWpehYe9qusOh1z2Q1/MSyPZrA8zndoJNPxvkfyyHfZNp9U/HQTw==",
+      "path": "libtorch-cpu-linux-x64/2.2.1.1",
+      "hashPath": "libtorch-cpu-linux-x64.2.2.1.1.nupkg.sha512"
     },
-    "libtorch-cpu-osx-arm64/2.5.1": {
+    "libtorch-cpu-osx-arm64/2.2.1.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Yl2SDwdNgGplma3X49kF9P/YQfW+lcbBPAy4eLbskqTkSeSJnkXxl6ENIIDT1XjoRNxKM0hARx2CWOiK7pCE+w==",
-      "path": "libtorch-cpu-osx-arm64/2.5.1",
-      "hashPath": "libtorch-cpu-osx-arm64.2.5.1.nupkg.sha512"
+      "sha512": "sha512-eMBu0zTQ2/oYEQ3sMBxAugVov7LD38smw1ouqelV0SaUay4QI8vBQ1XHK4/bVFcI6/YorLWvCG9gNZRA4U11Vg==",
+      "path": "libtorch-cpu-osx-arm64/2.2.1.1",
+      "hashPath": "libtorch-cpu-osx-arm64.2.2.1.1.nupkg.sha512"
     },
-    "libtorch-cpu-win-x64/2.5.1": {
+    "libtorch-cpu-osx-x64/2.2.1.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-u7X6G3mLRfC35Wn/ngCLpA51+J4qM+NTRYWAyJZnsyhv1WUr2N1FCGb3/MVhvfY7sdD3qt+cLm4Qm1JjyaHE/g==",
-      "path": "libtorch-cpu-win-x64/2.5.1",
-      "hashPath": "libtorch-cpu-win-x64.2.5.1.nupkg.sha512"
+      "sha512": "sha512-M7CAusU/Mla2rnC8zQck4uFvB2dLhrco4eibqciA+ZSh9EYRLkUaArh3YkYzJHOp8msm/3ImkdLdt6mjHHzksg==",
+      "path": "libtorch-cpu-osx-x64/2.2.1.1",
+      "hashPath": "libtorch-cpu-osx-x64.2.2.1.1.nupkg.sha512"
+    },
+    "libtorch-cpu-win-x64/2.2.1.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-g7cPRFuh7bd53Blc2YFzmC2IuYDhrXFYd3ziF9NIhTEA+I0AE8xbYNDwki/VIJQvviK8oEdtxWqlLm4OOdn3vw==",
+      "path": "libtorch-cpu-win-x64/2.2.1.1",
+      "hashPath": "libtorch-cpu-win-x64.2.2.1.1.nupkg.sha512"
     },
     "Microsoft.AspNetCore.OpenApi/8.0.13": {
       "type": "package",
@@ -511,20 +460,6 @@
       "sha512": "sha512-Ckb5EDBUNJdFWyajfXzUIMRkhf52fHZOQuuZg/oiu8y7zDCVwD0iHhew6MnThjHmevanpxL3f5ci2TtHQEN6bw==",
       "path": "microsoft.extensions.apidescription.server/6.0.5",
       "hashPath": "microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512"
-    },
-    "Microsoft.ML.OnnxRuntime/1.21.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-1IN5rz0W7SFiVKblydIcCh0TVXDVbgTHdFGchjrH+vEtneRED7PL8RDcQOXE4FO3y10vvjg03LNubFTX74FCpA==",
-      "path": "microsoft.ml.onnxruntime/1.21.0",
-      "hashPath": "microsoft.ml.onnxruntime.1.21.0.nupkg.sha512"
-    },
-    "Microsoft.ML.OnnxRuntime.Managed/1.21.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-Pp4PFhCELCMO8dWNbGK9Ge+Zh09xPVknmjvAgXIrLsfAgmv1It5aATP3UJTG/GBVzcvshDL/UI+KV9O8YQzkkQ==",
-      "path": "microsoft.ml.onnxruntime.managed/1.21.0",
-      "hashPath": "microsoft.ml.onnxruntime.managed.1.21.0.nupkg.sha512"
     },
     "Microsoft.OpenApi/1.6.14": {
       "type": "package",
@@ -596,26 +531,19 @@
       "path": "system.memory/4.5.5",
       "hashPath": "system.memory.4.5.5.nupkg.sha512"
     },
-    "System.Numerics.Tensors/9.0.0": {
+    "TorchSharp/0.102.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-hyJB4UlpAi19Xr9AXzu2NuagKC4lPfHObNMEAA0HmqFz2rX7wKgzeYzO/jM/eBHDhnUGFFEjk5cOoJaxqg5J4A==",
-      "path": "system.numerics.tensors/9.0.0",
-      "hashPath": "system.numerics.tensors.9.0.0.nupkg.sha512"
+      "sha512": "sha512-4n+wD9EoGhT/8zOFiXx22xdJup+7MKMGoMrYRbgWk22Sfj3ycACGqs63wZCIiz5dBkhNYbqRRfTNF505beRVmQ==",
+      "path": "torchsharp/0.102.0",
+      "hashPath": "torchsharp.0.102.0.nupkg.sha512"
     },
-    "TorchSharp/0.105.0": {
+    "TorchSharp-cpu/0.102.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-PC3QZ+Y79LXOmSBFNk5YK6iNR5B0rmgEgc0njPocKgI50FLCHZAxz4gRQfzXeB6ffRcxz/FStjWi7Pxo+zVnhA==",
-      "path": "torchsharp/0.105.0",
-      "hashPath": "torchsharp.0.105.0.nupkg.sha512"
-    },
-    "TorchSharp-cpu/0.105.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-RqIPovDEb0MY3sD/rLyFe1w57SfsBHTP8SCQa/e9MRhwMtHSE/nXB+1e9i3MmYtOBbPPYRgtAsPz8FzOcOSMjg==",
-      "path": "torchsharp-cpu/0.105.0",
-      "hashPath": "torchsharp-cpu.0.105.0.nupkg.sha512"
+      "sha512": "sha512-kwP7sylWiP0aGfk/Sk/bu5trqHCjiOXQIRfw6TRyNzHaWvmNRIwm0/RSGnYYjvZetEdM1c9GlnucQ+VrtasJDA==",
+      "path": "torchsharp-cpu/0.102.0",
+      "hashPath": "torchsharp-cpu.0.102.0.nupkg.sha512"
     }
   }
 }

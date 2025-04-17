@@ -57,17 +57,13 @@
               "target": "Package",
               "version": "[8.0.13, )"
             },
-            "Microsoft.ML.OnnxRuntime": {
-              "target": "Package",
-              "version": "[1.21.0, )"
-            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"
             },
             "TorchSharp-cpu": {
               "target": "Package",
-              "version": "[0.105.0, )"
+              "version": "[0.102.0, )"
             }
           },
           "imports": [
