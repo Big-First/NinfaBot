@@ -1,7 +1,8 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json; // Usado para JsonException, se necessário
-using ChatBotAPI.Core; // Namespace principal para suas classes
+using ChatBotAPI.Core;
+using ChatBotAPI.Models; // Namespace principal para suas classes
 // Remova 'using ChatBotAPI.Settings;' se ModelSettings está em Core
 using Microsoft.Extensions.Options;
 // Para List<>
@@ -85,11 +86,12 @@ builder.Services.AddSingleton<Model>(provider =>
 builder.Services.AddSingleton<Tokenizer>(provider =>
 {
     var settings = provider.GetRequiredService<ModelSettings>();
-    var loadedModel = provider.GetRequiredService<Model>();
+    string vocabPath = Path.GetFullPath(settings.TokenizerConfigPath); // Caminho para tokenizer.json
+    string mergesPath = Path.ChangeExtension(vocabPath, ".merges");
+    
     // *** CORREÇÃO: Usa lowercase para acessar a propriedade C# ***
     // Garante que a propriedade 'vocab' (lowercase) de loadedModel não seja null
-    return new Tokenizer(loadedModel.vocab ?? new Dictionary<string, int>(), settings.MaxSequenceLength,
-        settings.VocabSizeLimit);
+    return new Tokenizer(settings.MaxSequenceLength);
 });
 
 // NeuralModel (implementação concreta)

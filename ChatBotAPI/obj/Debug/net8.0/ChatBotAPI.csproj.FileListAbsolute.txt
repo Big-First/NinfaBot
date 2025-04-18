@@ -361,3 +361,6 @@ I:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\refint\ChatBotAPI.dll
 I:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ChatBotAPI.pdb
 I:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ChatBotAPI.genruntimeconfig.cache
 I:\NinfaBot\ChatBotAPI\obj\Debug\net8.0\ref\ChatBotAPI.dll
+I:\NinfaBot\ChatBotAPI\bin\Debug\net8.0\Llm.dll
+I:\NinfaBot\ChatBotAPI\bin\Debug\net8.0\Microsoft.ML.Tokenizers.dll
+I:\NinfaBot\ChatBotAPI\bin\Debug\net8.0\SharpToken.dll

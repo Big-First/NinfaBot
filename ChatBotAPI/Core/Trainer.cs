@@ -43,59 +43,69 @@ namespace ChatBotAPI.Core
         // --- MÉTODO Train (Estrutura Corrigida) ---
         public void Train(List<string> trainingData, int epochs)
         {
-            // Verificações iniciais
             if (trainingData == null || !trainingData.Any()) { Console.WriteLine("Training data is empty. Skipping training."); return; }
-            if (tokenizer.ActualVocabSize <= 2) { Console.Error.WriteLine("Cannot train: Tokenizer vocabulary is too small (Size <= 2)."); return; }
+            if (tokenizer.ActualVocabSize <= 0) { Console.Error.WriteLine("Cannot train: Tokenizer vocabulary size is invalid."); return; } // Verificação mais robusta
 
             int padTokenId = tokenizer.PadTokenId;
             int vocabSize = tokenizer.ActualVocabSize;
-            int maxSeqLen = 50; // Valor padrão
-             try { maxSeqLen = tokenizer.GetMaxSequenceLength(); }
-             catch { Console.WriteLine($"Warning: Could not get MaxSequenceLength. Using fallback={maxSeqLen}."); }
+            int maxSeqLen = tokenizer.GetMaxSequenceLength(); // Usa o getter
 
             Console.WriteLine($"Starting TorchSharp training on {device.type}. Epochs: {epochs}. Sentences: {trainingData.Count}. PadTokenId: {padTokenId}. VocabSize: {vocabSize}. MaxSeqLen: {maxSeqLen}.");
             Stopwatch epochStopwatch = new Stopwatch();
+            Stopwatch totalStopwatch = Stopwatch.StartNew(); // Tempo total
 
             // --- Loop Principal de Épocas ---
             for (int epoch = 0; epoch < epochs; epoch++)
             {
-                // ***** model.train() NO INÍCIO DA ÉPOCA *****
-                model.train();
-                // ***** FIM model.train() *****
-
+                model.train(); // Modo treino no início da época
                 epochStopwatch.Restart();
                 Console.WriteLine($"--- Epoch {epoch + 1}/{epochs} ---");
+
                 float totalLoss = 0f;
                 long totalStepsInEpoch = 0;
                 long skippedSteps = 0;
                 long sentenceCount = 0;
 
-                // Console.WriteLine($"DEBUG: Epoch {epoch + 1}: Entering sentence loop..."); // Log Opcional
+                // *** Variável para controlar o log de progresso ***
+                long reportIntervalSteps = 100; // Log a cada 100 passos de treino
+
                 try
                 {
                     // --- Loop pelas Sentenças ---
                     foreach (string sentence in trainingData)
                     {
                          sentenceCount++;
-                         int[] tokens = tokenizer.Tokenize(sentence);
+                         int[] tokens;
+                         try {
+                              tokens = tokenizer.Tokenize(sentence); // Chama o Tokenize da biblioteca agora
+                         } catch (Exception tex) {
+                             Console.Error.WriteLine($"ERROR tokenizing sentence {sentenceCount} (Epoch {epoch+1}): {tex.Message}. Skipping sentence.");
+                             continue; // Pula esta sentença se a tokenização falhar
+                         }
+
 
                          if (tokens.Length <= 1) {
-                             // Console.WriteLine($"AVISO: Epoch {epoch + 1}, Sent {sentenceCount} -> tokens.Length <= 1. Skipping."); // Log Opcional
-                             skippedSteps += tokens.Length;
+                             skippedSteps += tokens.Length; // Conta como pulados
                              continue;
                          }
 
-                         // --- Loop Interno pelos Passos ---
+                         // --- Loop Interno pelos Passos (Tokens Alvo) ---
                          for (int i = 1; i < tokens.Length; i++)
                          {
-                             if (tokens[i] == padTokenId) {
+                             long targetTokenId = tokens[i]; // O alvo é o token atual
+
+                             // Pula se o *alvo* for padding
+                             if (targetTokenId == padTokenId) {
                                  skippedSteps++;
                                  continue;
                              }
 
-                             long[] inputSequence = tokens.Take(i).Select(t => (long)t).ToArray();
-                             long targetTokenId = tokens[i];
-                             if (!inputSequence.Any()) { skippedSteps++; continue; }
+                             // A *entrada* são os tokens anteriores
+                             // Não precisa mais converter para long aqui se Tokenize retorna int[]
+                             int[] inputSequenceTokens = tokens.Take(i).ToArray();
+
+                             // Pula se a sequência de entrada estiver vazia (não deve acontecer com i=1)
+                             if (!inputSequenceTokens.Any()) { skippedSteps++; continue; }
 
                              Tensor? inputTensor = null;
                              Tensor? targetTensor = null;
@@ -104,35 +114,75 @@ namespace ChatBotAPI.Core
 
                              try // <- TRY INTERNO DO PASSO
                              {
-                                 inputTensor = tensor(inputSequence, dtype: ScalarType.Int64).to(device);
+                                 // Converte para LongTensor ANTES de enviar para o device
+                                 inputTensor = tensor(inputSequenceTokens.Select(t => (long)t).ToArray(), dtype: ScalarType.Int64).to(device);
+                                 // Target é um único valor, precisa ser um tensor 1D para CrossEntropyLoss
                                  targetTensor = tensor(new long[] { targetTokenId }, dtype: ScalarType.Int64).to(device);
+
                                  optimizer.zero_grad();
                                  outputLogits = model.forward(inputTensor);
 
-                                 // Verificações (simplificadas, logs opcionais)
-                                 if ((bool)(outputLogits == null)) { skippedSteps++; continue; }
-                                 bool isShapeOk = (outputLogits.dim() == 1 && outputLogits.shape[0] == vocabSize);
-                                 if (!isShapeOk) { skippedSteps++; continue; }
+                                 if ((bool)(outputLogits == null)) { skippedSteps++; continue; } // Verifica se a saída é válida
+
+                                 // Verifica shape da saída (esperado: [vocabSize] ou [1, vocabSize])
+                                 // CrossEntropyLoss espera [N, C] ou [C] para target [N] ou []
+                                 // Nossa saída é [vocabSize], nosso target é [1]. Precisamos dar unsqueeze na saída.
+                                 if(outputLogits.dim() != 1 || outputLogits.shape[0] != vocabSize) {
+                                      Console.Error.WriteLine($"ERROR: Unexpected output shape {outputLogits.shape}. Expected [{vocabSize}]. Skipping step.");
+                                      skippedSteps++;
+                                      continue;
+                                 }
+
+                                 // Ajusta shape da saída para [1, vocabSize] para CrossEntropyLoss
+                                 using var reshapedLogits = outputLogits.unsqueeze(0);
 
                                  // Calcular Loss, Backward, Step
-                                 loss = lossFunction.forward(outputLogits!.unsqueeze(0), targetTensor!);
-                                 float currentLoss = loss!.item<float>();
+                                 loss = lossFunction.forward(reshapedLogits, targetTensor); // Passa [1, C] e [1]
+                                 float currentLoss = loss.item<float>();
+
+                                 // Verifica se a perda é válida (NaN ou Infinito)
+                                 if (float.IsNaN(currentLoss) || float.IsInfinity(currentLoss))
+                                 {
+                                     Console.Error.WriteLine($"Warning: Invalid loss detected ({currentLoss}) at step {totalStepsInEpoch + 1}. Skipping backward/step.");
+                                     skippedSteps++;
+                                     continue; // Pula backward e step
+                                 }
+
                                  loss.backward();
                                  optimizer.step();
+
+                                 // --- Atualiza contadores e loga progresso ---
                                  totalLoss += currentLoss;
-                                 totalStepsInEpoch++;
+                                 totalStepsInEpoch++; // Incrementa após um passo BEM SUCEDIDO
+
+                                 // *** LOG DE PROGRESSO PERIÓDICO ***
+                                 if (totalStepsInEpoch > 0 && totalStepsInEpoch % reportIntervalSteps == 0)
+                                 {
+                                     float avgLossSoFar = totalLoss / totalStepsInEpoch;
+                                     // Calcula tempo estimado restante (simples)
+                                     double elapsedEpochMs = epochStopwatch.Elapsed.TotalMilliseconds;
+                                     double estimatedTotalEpochMs = (elapsedEpochMs / totalStepsInEpoch) * (trainingData.Sum(s=> Math.Max(0, s.Length-1))); // Estimativa grosseira baseada no total de tokens possíveis
+                                     double estimatedRemainingMs = Math.Max(0, estimatedTotalEpochMs - elapsedEpochMs);
+                                     TimeSpan remainingTs = TimeSpan.FromMilliseconds(estimatedRemainingMs);
+
+                                     Console.WriteLine($"  Epoch {epoch + 1} Step {totalStepsInEpoch} [{DateTime.Now:HH:mm:ss}] - Avg Loss: {avgLossSoFar:F4} - Est. Epoch Rem: {remainingTs:hh\\:mm\\:ss}");
+                                 }
+                                 // *** FIM LOG DE PROGRESSO ***
 
                              }
                              catch (Exception stepEx) {
-                                 Console.Error.WriteLine($"ERROR in training step (i={i}, sent={sentenceCount}, epoch={epoch+1}): {stepEx.Message}");
+                                 Console.Error.WriteLine($"ERROR in training step (Sent# {sentenceCount}, Token# {i}, Epoch {epoch+1}): {stepEx.Message}");
                                  skippedSteps++;
                              }
                              finally {
-                                inputTensor?.Dispose(); targetTensor?.Dispose(); outputLogits?.Dispose(); loss?.Dispose();
+                                // Dispose seguro dos tensores do passo
+                                inputTensor?.Dispose();
+                                targetTensor?.Dispose();
+                                outputLogits?.Dispose();
+                                loss?.Dispose();
                              }
-                         } // Fim loop interno (passos)
+                         } // Fim loop interno (passos/tokens)
                     } // Fim loop externo (sentenças)
-                    // Console.WriteLine($"DEBUG: Epoch {epoch + 1}: Finished sentence loop."); // Log Opcional
                 }
                 catch (Exception exOuterLoop) { Console.Error.WriteLine($"ERROR in outer sentence loop (Epoch {epoch + 1}): {exOuterLoop.Message}"); }
 
@@ -144,27 +194,26 @@ namespace ChatBotAPI.Core
 
             } // --- Fim do Loop Principal de Épocas ---
 
-            // ***** model.eval() FINAL *****
-            model.eval();
-            Console.WriteLine("Training finished.");
+            totalStopwatch.Stop();
+            model.eval(); // Garante modo de avaliação final
+            Console.WriteLine($"Training finished in {totalStopwatch.Elapsed}.");
 
-            // ***** SALVAR O MODELO APENAS NO FINAL DO TREINO COMPLETO *****
+            // --- Salvar Modelo ---
             Console.WriteLine($"Attempting to save final model state to: {this.modelSavePath}");
             try
             {
-                 string? directory = Path.GetDirectoryName(this.modelSavePath);
-                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                 {
-                     Directory.CreateDirectory(directory);
-                     Console.WriteLine($"Created directory for model saving: {directory}");
-                 }
-                 this.model.save(this.modelSavePath); // Salva o estado final
-                 Console.WriteLine($"Trained model state saved successfully to: {this.modelSavePath}");
-                 if(!File.Exists(this.modelSavePath)) { Console.Error.WriteLine("CRITICAL WARNING: Model file DOES NOT EXIST after save call!"); }
+                 // ... (código de salvar como antes) ...
+                  string? directory = Path.GetDirectoryName(this.modelSavePath);
+                  if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                  {
+                      Directory.CreateDirectory(directory);
+                      Console.WriteLine($"Created directory for model saving: {directory}");
+                  }
+                  this.model.save(this.modelSavePath);
+                  Console.WriteLine($"Trained model state saved successfully to: {this.modelSavePath}");
+                  if(!File.Exists(this.modelSavePath)) { Console.Error.WriteLine("CRITICAL WARNING: Model file DOES NOT EXIST after save call!"); }
             }
             catch (Exception ex) { Console.Error.WriteLine($"ERROR saving final model state: {ex.ToString()}"); }
-            // ***** FIM SALVAR MODELO *****
-
-        } // --- Fim do Método Train ---
+        }
     } // --- Fim da Classe Trainer ---
 } // --- Fim do Namespace ---

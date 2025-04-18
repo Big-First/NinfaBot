@@ -1,12 +1,6 @@
 ﻿// ChatBotService.cs - AJUSTADO COM DETECÇÃO DE EOS E PENALIDADE DE REPETIÇÃO
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.WebSockets;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using TorchSharp;
 using static TorchSharp.torch;
 
@@ -36,15 +30,6 @@ namespace ChatBotAPI.Core
             // Inclui PAD/UNK (ID 0) e IDs para '.', '?', '!' (se existirem no tokenizer)
             this.eosTokenIds = new HashSet<int> { this.padTokenId };
             string[] commonEosStrings = { ".", "?", "!" };
-            foreach (string eosStr in commonEosStrings)
-            {
-                if (tokenizer.TryGetTokenId(eosStr, out int id)) // Precisa de um método TryGetTokenId no Tokenizer
-                {
-                    this.eosTokenIds.Add(id);
-                } else {
-                    Console.WriteLine($"Warning: EOS token '{eosStr}' not found in tokenizer vocabulary.");
-                }
-            }
             // --- Fim Definição EOS ---
 
 
@@ -221,13 +206,5 @@ namespace ChatBotAPI.Core
     // --- ADICIONAR MÉTODO AO TOKENIZER.CS ---
     // Você precisará adicionar este método à sua classe Tokenizer
     // para que o ChatBotService possa encontrar os IDs dos tokens EOS.
-    public partial class Tokenizer // Use partial se Tokenizer estiver em outro arquivo
-    {
-        // Tenta obter o ID de um token específico
-        public bool TryGetTokenId(string token, out int id)
-        {
-            return wordToIndex.TryGetValue(token, out id);
-        }
-    }
     // --- FIM ADIÇÃO AO TOKENIZER.CS ---
 }
