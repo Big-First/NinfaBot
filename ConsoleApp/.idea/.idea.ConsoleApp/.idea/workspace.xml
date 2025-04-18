@@ -4,35 +4,53 @@
     <projectFile>ConsoleApp/ConsoleApp.csproj</projectFile>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="195fafe4-cc8f-4487-ab0f-a15f10180148" name="Changes" comment="" />
+    <list default="true" id="195fafe4-cc8f-4487-ab0f-a15f10180148" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/Core/ChatBotService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/Core/ChatBotService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/Model/chatbot_lstm_state.pt" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/Model/chatbot_lstm_state.pt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.exe" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/bin/Debug/net8.0/ChatBotAPI.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.AssemblyInfo.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ChatBotAPI.sourcelink.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/apphost.exe" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/apphost.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ref/ChatBotAPI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/ref/ChatBotAPI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/refint/ChatBotAPI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../ChatBotAPI/obj/Debug/net8.0/refint/ChatBotAPI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.ConsoleApp/.idea/projectSettingsUpdater.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.ConsoleApp/.idea/projectSettingsUpdater.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.ConsoleApp/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.ConsoleApp/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/ConsoleApp/Program.cs" root0="SKIP_HIGHLIGHTING" />
   </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 2
+}]]></component>
   <component name="ProjectId" id="2vmI9Y0Wu7efVSzC7a3nMekOc0G" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
-  },
-  &quot;keyToStringList&quot;: {
-    &quot;rider.external.source.directories&quot;: [
-      &quot;C:\\Users\\MPLopes\\AppData\\Roaming\\JetBrains\\Rider2022.3\\resharper-host\\DecompilerCache&quot;,
-      &quot;C:\\Users\\MPLopes\\AppData\\Roaming\\JetBrains\\Rider2022.3\\resharper-host\\SourcesCache&quot;,
-      &quot;C:\\Users\\MPLopes\\AppData\\Local\\Symbols\\src&quot;
-    ]
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "LSTM-18-04-2025-11-20",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager">
     <configuration name="ConsoleApp" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />
@@ -64,12 +82,14 @@
       <workItem from="1744743675016" duration="1049000" />
       <workItem from="1744761628806" duration="1710000" />
       <workItem from="1744909592497" duration="15000" />
+      <workItem from="1744991569059" duration="14000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
   <component name="UnityUnitTestConfiguration" currentTestLauncher="NUnit" />
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />

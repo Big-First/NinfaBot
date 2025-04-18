@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj": {}
+    "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj": {}
   },
   "projects": {
-    "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj": {
+    "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
+        "projectUniqueName": "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
         "projectName": "ConsoleApp",
-        "projectPath": "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
+        "projectPath": "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
         "packagesPath": "C:\\Users\\MPLopes\\.nuget\\packages\\",
-        "outputPath": "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\obj\\",
+        "outputPath": "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "H:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",

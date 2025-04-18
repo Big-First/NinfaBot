@@ -13,8 +13,9 @@ namespace ChatBotAPI.Core
         private readonly Dictionary<int, string> indexToWord;
         public int PadTokenId { get; private set; }
         public int UnkTokenId { get; private set; }
-        private readonly string unkToken = "<unk>"; // Token UNK padrão neste JSON
+        private readonly string unkToken = "unk"; // Token UNK padrão neste JSON
         private readonly string padToken; // Será definido como <unk>
+        private readonly string eosToken = "<|endoftext|>";
         private readonly int maxSequenceLength;
         public readonly int vocabSizeLimit; // Limite configurado
 

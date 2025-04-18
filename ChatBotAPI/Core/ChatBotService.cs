@@ -55,6 +55,47 @@ namespace ChatBotAPI.Core
             this.model.eval();
             Console.WriteLine("ChatBotService: Model set to eval() mode.");
         }
+        
+        private string PrintGeneratedTextDebug(List<int> generatedTokenIds, string contextMessage = "Detokenized Debug Output")
+        {
+            Console.WriteLine($"--- DEBUG ({contextMessage}) ---");
+            if (generatedTokenIds == null || !generatedTokenIds.Any())
+            {
+                Console.WriteLine("DEBUG: Lista de tokens gerados está vazia ou nula.");
+                Console.WriteLine("--- END DEBUG ---");
+                return "";
+            }
+
+            Console.WriteLine($"DEBUG: Tentando detokenizar {generatedTokenIds.Count} tokens: [{string.Join(", ", generatedTokenIds)}]");
+
+            try
+            {
+                // Usa o tokenizer injetado na ChatBotService (_tokenizer)
+                // Certifique-se de que o nome da variável do tokenizer esteja correto (pode ser _tokenizer, tokenizer, etc.)
+                string detokenizedText = tokenizer.Detokenize(generatedTokenIds.ToArray()); // Detokenize espera int[]
+
+                if (string.IsNullOrWhiteSpace(detokenizedText))
+                {
+                    Console.WriteLine("DEBUG: Resultado da detokenização é VAZIO ou ESPAÇOS EM BRANCO.");
+                }
+                else
+                {
+                    Console.WriteLine($"DEBUG: Texto Detokenizado: >>>{detokenizedText}<<<");
+                    return detokenizedText;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"DEBUG: ERRO durante a detokenização para debug: {ex.Message}");
+                Console.Error.WriteLine($"DEBUG: StackTrace: {ex.StackTrace}");
+            }
+            finally
+            {
+                Console.WriteLine("--- END DEBUG ---");
+            }
+
+            return "";
+        }
 
         public async Task ProcessMessage(WebSocket webSocket, string message)
         {
@@ -155,14 +196,15 @@ namespace ChatBotAPI.Core
 
                     } // --- Fim do Loop FOR de Geração ---
                 } // --- Fim do using no_grad ---
+                Console.WriteLine($"ChatBotService: Generation finished. Detokenizing {generatedTokenIds.Count} tokens...");
+                string response =  PrintGeneratedTextDebug(generatedTokenIds, "Após Loop de Geração");
 
                // ... (Detokenizar, tratar resposta vazia, enviar como antes) ...
                  Console.WriteLine($"ChatBotService: Generation finished. Detokenizing {generatedTokenIds.Count} tokens...");
                  if (generatedTokenIds.Count > 0) { /* ... Detokenize ... */ }
                  else { /* ... No response generated ... */ }
                  if (string.IsNullOrWhiteSpace(finalResponseMessage)) { /* ... Generated empty ... */ }
-                 Console.WriteLine($"ChatBotService: Preparing to send final response: '{finalResponseMessage}'");
-                 await SendMessage(webSocket, finalResponseMessage);
+                 await SendMessage(webSocket, response);
                  Console.WriteLine($"ChatBotService: SendMessage task awaited for final response.");
 
             } // Fim do Try Principal

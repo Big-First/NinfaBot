@@ -63,10 +63,11 @@ class Program
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
             var model = new Model("BPE", tokenizer.model.vocab, tokenizer.model.merges);
-            token = new TokenWrapper("1.0", model);
+            token = new TokenWrapper("1.0", tokenizer.normalizer, tokenizer.preTokenizer, tokenizer.addedTokens, tokenizer.truncation, tokenizer.padding, tokenizer.postProcessor, tokenizer.decoder,model);
 
             Console.WriteLine($"💾 Salvando tokenizer atualizado como BPE em: {outputJsonPath}");
             string newJson = JsonSerializer.Serialize(token, serializeOptions);
+            Console.WriteLine(newJson);
             await File.WriteAllTextAsync(outputJsonPath, newJson);
 
             Console.WriteLine($"✅ Processo concluído.");
