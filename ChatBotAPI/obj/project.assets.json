@@ -1181,20 +1181,20 @@
   "packageFolders": {
     "C:\\Users\\MPLopes\\.nuget\\packages\\": {},
     "H:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {},
-    "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet\\": {}
+    "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "H:\\GitHub\\NinfaBot\\ChatBotAPI\\ChatBotAPI.csproj",
+      "projectUniqueName": "I:\\NinfaBot\\ChatBotAPI\\ChatBotAPI.csproj",
       "projectName": "ChatBotAPI",
-      "projectPath": "H:\\GitHub\\NinfaBot\\ChatBotAPI\\ChatBotAPI.csproj",
+      "projectPath": "I:\\NinfaBot\\ChatBotAPI\\ChatBotAPI.csproj",
       "packagesPath": "C:\\Users\\MPLopes\\.nuget\\packages\\",
-      "outputPath": "H:\\GitHub\\NinfaBot\\ChatBotAPI\\obj\\",
+      "outputPath": "I:\\NinfaBot\\ChatBotAPI\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "H:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
-        "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet\\"
+        "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet"
       ],
       "configFilePaths": [
         "C:\\Users\\MPLopes\\AppData\\Roaming\\NuGet\\NuGet.Config",

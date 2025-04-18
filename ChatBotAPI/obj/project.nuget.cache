@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "4m1+f+WBoO0=",
+  "dgSpecHash": "VHBe37juRvc=",
   "success": true,
-  "projectFilePath": "H:\\GitHub\\NinfaBot\\ChatBotAPI\\ChatBotAPI.csproj",
+  "projectFilePath": "I:\\NinfaBot\\ChatBotAPI\\ChatBotAPI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\MPLopes\\.nuget\\packages\\google.protobuf\\3.21.9\\google.protobuf.3.21.9.nupkg.sha512",
     "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu\\2.2.1.1\\libtorch-cpu.2.2.1.1.nupkg.sha512",
