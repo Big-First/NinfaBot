@@ -147,7 +147,11 @@ using (var scope = app.Services.CreateScope()) // Cria um escopo para resolver s
         scope.ServiceProvider.GetRequiredService<ModelSettings>(); // Obtém configurações (ex: número de épocas)
 
     // 1. Obter os dados brutos (input, output) da função estática
-    List<(string input, string output)> rawTrainingData = GetTrainingData(); // Chama a função definida abaixo
+    int numberOfTrainingPairs = 1500; // Ou leia de settings, ex: settings.NumberOfTrainingPairs
+    Console.WriteLine($"Generating {numberOfTrainingPairs} training pairs using TrainingDataGenerator...");
+    // Chama o método estático da classe que você criou (ajuste o nome da classe se necessário)
+    List<(string input, string output)> rawTrainingData = TrainingDataGenerator.GetTrainingData(numberOfTrainingPairs);
+    Console.WriteLine($"Generated {rawTrainingData.Count} actual pairs.");// Chama a função definida abaixo
 
     // 2. Formatar os dados como sequências únicas para next-word prediction
     List<string> trainingSequences = rawTrainingData
@@ -249,6 +253,7 @@ async Task HandleWebSocketAsync(WebSocket webSocket, ChatBotService chatService,
     }
 }
 
+/*
 // Função estática para fornecer os dados de treinamento
 static List<(string input, string output)> GetTrainingData()
 {
@@ -360,6 +365,7 @@ static List<(string input, string output)> GetTrainingData()
         ("I like you", "I like chatting with you too!")
     };
 }
+*/
 
 
 // *** Inicialização Final ***

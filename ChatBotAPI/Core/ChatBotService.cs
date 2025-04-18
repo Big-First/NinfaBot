@@ -30,7 +30,7 @@ namespace ChatBotAPI.Core
             this.model.to(this.device);
             this.padTokenId = this.tokenizer.PadTokenId; // Geralmente ID 0
             this.maxGeneratedTokens = 30;
-            this.samplingTemperature = 0.8f; // Mantendo moderado (ajuste se necessário)
+            this.samplingTemperature = 0.7f; // Mantendo moderado (ajuste se necessário)
 
             // --- Definir Tokens de Fim de Sentença ---
             // Inclui PAD/UNK (ID 0) e IDs para '.', '?', '!' (se existirem no tokenizer)
