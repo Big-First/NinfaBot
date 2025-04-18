@@ -18,6 +18,10 @@
         <Link>.dockerignore</Link>
       </Content>
     </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Model" />
+    </ItemGroup>
     
 
 </Project>

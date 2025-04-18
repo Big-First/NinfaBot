@@ -22,7 +22,7 @@ public static class TrainingDataGenerator // Changed class name for clarity
             "Hi! How can I help you today?", "Hello! What is on your mind?", "Hey there! Nice to see you!",
             "Hello! How's everything?", "Hi! Ready to chat.", "Hey! What shall we talk about?",
             "Greetings! I'm at your service.", "Hi! Hope you're having a good day.",
-            "Hello! Ask me anything.", "Good day! How can I assist?", // More generic
+            "Hello! Ask me anything.", "Good day! How can I assist?", 
             "Hey! Nice to chat with you.", "Hi there! What can I do for you?"
         };
         #endregion
@@ -121,7 +121,6 @@ public static class TrainingDataGenerator // Changed class name for clarity
             "Your fingernails grow faster on your dominant hand.",
             "Hot water can sometimes freeze faster than cold water, an effect known as the Mpemba effect.",
             "The shortest war in history was between Britain and Zanzibar on August 27, 1896. Zanzibar surrendered after 38 minutes."
-            // Add significantly more facts for better variety
         };
         #endregion
 
@@ -151,7 +150,6 @@ public static class TrainingDataGenerator // Changed class name for clarity
             "Why couldn't the leopard play hide and seek? Because he was always spotted!",
             "What do you call a fish with no eyes? Fsh!",
             "Why don't skeletons fight each other? They don't have the guts!"
-            // Add significantly more jokes
         };
         #endregion
 
@@ -178,7 +176,6 @@ public static class TrainingDataGenerator // Changed class name for clarity
             {"Bolivia", "Sucre (constitutional), La Paz (seat of government)"}, {"Honduras", "Tegucigalpa"},
             {"Paraguay", "Asunción"}, {"Nicaragua", "Managua"}, {"El Salvador", "San Salvador"}, {"Costa Rica", "San José"},
             {"Panama", "Panama City"}, {"Uruguay", "Montevideo"}, {"Jamaica", "Kingston"}
-            // Add MANY more for comprehensive coverage
         };
         #endregion
 
@@ -211,7 +208,6 @@ public static class TrainingDataGenerator // Changed class name for clarity
             ("What is the powerhouse of the cell?", "Mitochondria are often referred to as the powerhouses of the cell."),
             ("What is the hardest natural substance on Earth?", "Diamond is the hardest known natural substance."),
             ("What is the chemical symbol for Gold?", "The chemical symbol for Gold is Au, from the Latin word 'aurum'."),
-            // Add MANY more
         };
         #endregion
 

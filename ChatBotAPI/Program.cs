@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 // Para Path, File
 using ChatBotAPI.Settings; // Para Linq (Any, Select)
 
+// ***** FIM SERVIÇO DE ESTADO *****
 var builder = WebApplication.CreateBuilder(args);
 
 // *** 1. Configuração ***
@@ -15,7 +16,8 @@ builder.Services.Configure<ModelSettings>(builder.Configuration.GetSection("Mode
 builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ModelSettings>>().Value);
 
 // *** 2. Registro de Serviços com DI ***
-
+// ***** REGISTRA O SERVIÇO DE ESTADO PRIMEIRO *****
+builder.Services.AddSingleton<TrainingExecutionState>();
 // Model (lido do JSON via TokenWrapper)
 builder.Services.AddSingleton<Model>(provider =>
 {
@@ -122,57 +124,105 @@ builder.Services.AddSingleton<ChatBotService>(provider =>
 builder.Services.AddSingleton<Trainer>(provider =>
 {
     var model = provider.GetRequiredService<TorchSharpModel>();
+    var settings = provider.GetRequiredService<ModelSettings>();
+    string modelSavePath = settings.ModelSavePath ?? "model_state.pt";
     // Coloque um breakpoint AQUI
     var tokenizer = provider.GetRequiredService<Tokenizer>(); // Pede o Tokenizer
     Console.WriteLine(
         $"DEBUG: Program.cs - Injecting Tokenizer into Trainer. Is null? {tokenizer == null}"); // Para learning rate, se necessário
     // Aqui você pode obter a taxa de aprendizado das configurações (settings.LearningRate por exemplo)
     double learningRate = 0.001; // Ou use settings.LearningRate
-    return new Trainer(model, tokenizer, learningRate);
+    return new Trainer(model, tokenizer, learningRate, modelSavePath);
 });
 
 
 // *** Construção do App ***
 var app = builder.Build();
+// ***** INTERAÇÃO COM USUÁRIO E DEFINIÇÃO DO ESTADO *****
+using (var initialScope = app.Services.CreateScope()) // Precisa de um escopo para pegar o serviço de estado
+{
+    var executionState = initialScope.ServiceProvider.GetRequiredService<TrainingExecutionState>();
 
+    Console.WriteLine("============================================");
+    Console.WriteLine("ChatBotAPI Initializing...");
+    Console.WriteLine("Enter 'start' to load model (if exists) or train new if not found.");
+    Console.WriteLine("Enter 'train' to force training (loads model first if exists, then continues training).");
+    Console.Write("Mode: ");
+    string? userInput = Console.ReadLine()?.Trim().ToLowerInvariant();
+
+    if (userInput == "train") {
+        executionState.ForceTraining = true;
+        Console.WriteLine("\n*** 'train' mode selected.\n");
+    } else if (userInput == "start") {
+        executionState.ForceTraining = false;
+        Console.WriteLine("\n*** 'start' mode selected.\n");
+    } else {
+        Console.WriteLine("\n*** Invalid input. Defaulting to 'start' mode.\n");
+        executionState.ForceTraining = false;
+    }
+}
+// ***** FIM INTERAÇÃO E DEFINIÇÃO DO ESTADO *****
 // *** Configuração do Pipeline de Requisição HTTP ***
 app.UseWebSockets(); // Essencial para WebSockets
 
-// *** TREINAMENTO NA INICIALIZAÇÃO (INCORPORADO) ***
-Console.WriteLine("--- Starting Training Phase ---");
-using (var scope = app.Services.CreateScope()) // Cria um escopo para resolver serviços
+// *** TREINAMENTO NA INICIALIZAÇÃO (Condicional Controlado por TrainingExecutionState) ***
+Console.WriteLine("--- Checking Training Phase ---");
+using (var scope = app.Services.CreateScope())
 {
-    var trainer = scope.ServiceProvider.GetRequiredService<Trainer>();
-    var settings =
-        scope.ServiceProvider.GetRequiredService<ModelSettings>(); // Obtém configurações (ex: número de épocas)
+    var executionState = scope.ServiceProvider.GetRequiredService<TrainingExecutionState>(); // Pega o estado
+    var settings = scope.ServiceProvider.GetRequiredService<ModelSettings>();
+    var model = scope.ServiceProvider.GetRequiredService<TorchSharpModel>(); // Pega o modelo (ainda vazio ou não carregado)
+    string modelStatePath = Path.GetFullPath(settings.ModelSavePath ?? "model_state.pt");
 
-    // 1. Obter os dados brutos (input, output) da função estática
-    int numberOfTrainingPairs = 1500; // Ou leia de settings, ex: settings.NumberOfTrainingPairs
-    Console.WriteLine($"Generating {numberOfTrainingPairs} training pairs using TrainingDataGenerator...");
-    // Chama o método estático da classe que você criou (ajuste o nome da classe se necessário)
-    List<(string input, string output)> rawTrainingData = TrainingDataGenerator.GetTrainingData(numberOfTrainingPairs);
-    Console.WriteLine($"Generated {rawTrainingData.Count} actual pairs.");// Chama a função definida abaixo
-
-    // 2. Formatar os dados como sequências únicas para next-word prediction
-    List<string> trainingSequences = rawTrainingData
-        .Select(pair => $"{pair.input} {pair.output}") // Concatena input e output
-        .ToList();
-
-    // 3. Chamar o Trainer com as sequências formatadas
-    if (trainingSequences.Any())
+    // ***** TENTA CARREGAR O MODELO AGORA (SE NÃO FOR FORÇADO) *****
+    if (!executionState.ForceTraining && File.Exists(modelStatePath))
     {
-        Console.WriteLine(
-            $"Starting training with {trainingSequences.Count} combined sequences for {settings.TrainingEpochs} epochs...");
-        // O Trainer.cs ajustado processa List<string> com next-word prediction
-        trainer.Train(trainingSequences, epochs: settings.TrainingEpochs);
-        Console.WriteLine("--- Training Finished ---");
+        try {
+            Console.WriteLine($"'start' mode: Found existing model state '{modelStatePath}'. Loading...");
+            model.load(modelStatePath); // Carrega no objeto Singleton
+            model.eval();
+            Console.WriteLine("Model state loaded successfully.");
+            executionState.WasModelLoaded = true; // Marca como carregado
+        } catch (Exception ex) {
+             Console.Error.WriteLine($"ERROR loading model state: {ex.Message}. Model will be trained.");
+             executionState.WasModelLoaded = false; // Garante treino
+        }
+    } else {
+         executionState.WasModelLoaded = false; // Não carregou (ou foi forçado)
     }
-    else
+
+    // ***** DECIDE SE DEVE TREINAR *****
+    if (executionState.ShouldRunTrainingBlock) // Usa a propriedade combinada
     {
-        Console.WriteLine("No training data provided/generated, skipping training.");
+         if (executionState.ForceTraining && executionState.WasModelLoaded) {
+             Console.WriteLine("Starting CONTINUED training ('train' mode with loaded model)...");
+         } else if (executionState.ForceTraining && !executionState.WasModelLoaded) {
+             Console.WriteLine("Starting training FROM SCRATCH ('train' mode, no model loaded)...");
+         } else { // !executionState.ForceTraining && !executionState.WasModelLoaded
+             Console.WriteLine("Starting training FROM SCRATCH ('start' mode, no model loaded)...");
+         }
+
+        var trainer = scope.ServiceProvider.GetRequiredService<Trainer>(); // Pega o Trainer
+
+        // Gera/Pega dados
+        int numberOfTrainingPairs = 1500;
+        Console.WriteLine($"Generating {numberOfTrainingPairs} training pairs...");
+        List<(string input, string output)> rawTrainingData = GetTrainingData();
+        Console.WriteLine($"Generated {rawTrainingData.Count} actual pairs.");
+
+        List<string> trainingSequences = rawTrainingData.Select(pair => $"{pair.input} {pair.output}").ToList();
+
+        if (trainingSequences.Any()) {
+            Console.WriteLine($"Starting training with {trainingSequences.Count} sequences for {settings.TrainingEpochs} epochs...");
+            trainer.Train(trainingSequences, epochs: settings.TrainingEpochs); // Treina e SALVA
+            Console.WriteLine("--- Training Finished ---");
+        } else { /* ... No data ... */ }
+    } else {
+        // Só chega aqui se !ForceTraining E WasModelLoaded
+        Console.WriteLine("Skipping training as model was successfully loaded ('start' mode).");
         Console.WriteLine("--- Training Phase Skipped ---");
     }
-} // Fim do escopo de serviço para treinamento
+}
 
 
 // *** Mapeamento de Endpoints ***
@@ -253,7 +303,7 @@ async Task HandleWebSocketAsync(WebSocket webSocket, ChatBotService chatService,
     }
 }
 
-/*
+// *** Inicialização Final ***
 // Função estática para fornecer os dados de treinamento
 static List<(string input, string output)> GetTrainingData()
 {
@@ -365,10 +415,6 @@ static List<(string input, string output)> GetTrainingData()
         ("I like you", "I like chatting with you too!")
     };
 }
-*/
-
-
-// *** Inicialização Final ***
 // ... (Mapeamento de /chat e HandleWebSocketAsync como antes) ...
 // ... (Função GetTrainingData como antes) ...
 

@@ -16,22 +16,26 @@ namespace ChatBotAPI.Core
         private readonly TorchSharpModel model;
         private readonly Tokenizer tokenizer;
         private readonly Optimizer optimizer;
-        private readonly Module<Tensor, Tensor, Tensor> lossFunction; // Função de perda
-        private readonly Device device; // Dispositivo (CPU ou CUDA)
+        private readonly Module<Tensor, Tensor, Tensor> lossFunction;
+        private readonly Device device;
+        private readonly string modelSavePath;
 
         // --- CONSTRUTOR (sem alterações) ---
-        public Trainer(TorchSharpModel model, Tokenizer tokenizer, double learningRate = 0.001)
+        public Trainer(TorchSharpModel model, Tokenizer tokenizer, double learningRate, string modelSavePath) // <-- Remove parâmetro trainingState
         {
             this.model = model ?? throw new ArgumentNullException(nameof(model));
             this.tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
             this.device = torch.cuda.is_available() ? torch.CUDA : torch.CPU;
+            this.modelSavePath = Path.GetFullPath(modelSavePath);
+            // this.trainingState = trainingState; // REMOVIDO
             Console.WriteLine($"Trainer using device: {this.device.type}");
+            Console.WriteLine($"Trainer configured to save model to: {this.modelSavePath}");
             this.model.to(this.device);
             this.optimizer = Adam(this.model.parameters(), lr: learningRate);
             int padTokenId = this.tokenizer.PadTokenId;
             this.lossFunction = CrossEntropyLoss(ignore_index: padTokenId).to(this.device);
             Console.WriteLine($"Trainer initialized loss function. Device: {this.device.type}. ignore_index (PadTokenId): {padTokenId}");
-             if (tokenizer.ActualVocabSize <= 2) {
+            if (tokenizer.ActualVocabSize <= 2) {
                  Console.Error.WriteLine("CRITICAL WARNING: Trainer detected Tokenizer ActualVocabSize <= 2...");
              }
         }
