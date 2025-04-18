@@ -155,6 +155,13 @@ namespace ChatBotAPI.Core
             // *** MUDANÇA: Tentar juntar com espaço ***
             return string.Join(" ", words);
         }
+        public bool TryGetTokenId(string token, out int id)
+        {
+            // Você pode querer normalizar o token aqui também, assim como faz em Tokenize
+            // Mas para os tokens simples como ".", "?", "!", toLowerInvariant() deve bastar
+            string processedToken = token.ToLowerInvariant();
+            return wordToIndex.TryGetValue(processedToken, out id);
+        }
 
          // Getter para MaxSequenceLength
         public int GetMaxSequenceLength()

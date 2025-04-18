@@ -1,4 +1,4 @@
-﻿// TorchSharpModel.cs - VERSÃO LSTM ASSUMINDO Item2 É APENAS h_n
+﻿// TorchSharpModel.cs - VERSÃO LSTM CORRIGIDA
 
 using System;
 using System.Linq;
@@ -22,87 +22,117 @@ namespace ChatBotAPI.Core
         public TorchSharpModel(int vocabSize, int embeddingSize, int paddingIdx = 0, int hiddenSize = 128, int numLSTMLayers = 1)
             : base(nameof(TorchSharpModel))
         {
-            // ... (Validações, Definição Camadas, RegisterComponents, Log) ...
-             this.hiddenSize = hiddenSize;
+            this.hiddenSize = hiddenSize;
             this.paddingIdx = paddingIdx;
             this.numLSTMLayers = numLSTMLayers;
             this.embedding = Embedding(vocabSize, embeddingSize, padding_idx: this.paddingIdx);
+            // batchFirst = false significa que o formato esperado é (SeqLen, BatchSize, InputSize)
             this.lstm = LSTM(inputSize: embeddingSize, hiddenSize: this.hiddenSize, numLayers: this.numLSTMLayers, batchFirst: false);
             this.linearOutput = Linear(inputSize: this.hiddenSize, outputSize: vocabSize);
             RegisterComponents();
             Console.WriteLine($"TorchSharpModel (LSTM) Initialized: VocabSize={vocabSize}, EmbeddingSize={embeddingSize}, HiddenSize={this.hiddenSize}, LSTMLayers={this.numLSTMLayers}, PaddingIdx={this.paddingIdx}");
         }
 
-        // --- Método forward com LSTM ---
+        // --- Método forward com LSTM (CORRIGIDO) ---
+        // Espera input de shape (SeqLen, BatchSize). Em inferência BatchSize=1.
         public override Tensor forward(Tensor input)
         {
+            // DECLARAÇÃO FORA DO TRY PARA ACESSO NO FINALLY
             Tensor? embedded = null;
-            Tensor? lstmInput = null;
-            Tensor? lstmOutputSequence = null;
-            Tensor? h_n = null; // Apenas estado oculto final
+            // Declarar como uma tupla de 3 Tensors (output_seq, h_n, c_n), anulável
+            (Tensor output_seq, Tensor h_n, Tensor c_n)? lstmResult = null;
+            Tensor? lstmOutputSequence = null; // Irá referenciar lstmResult.Value.output_seq
             Tensor? lastTimeStepHiddenState = null;
-            Tensor? logits = null;
+            Tensor? logits = null; // Será retornado no caminho de sucesso
 
             try
             {
                 // 1. Garante tipo Long
                 if (input.dtype != ScalarType.Int64) { input = input.to(ScalarType.Int64); }
 
+                // Console.WriteLine($"DEBUG TorchSharpModel Forward: Input shape before embedding: {input.shape}"); // Log de debug
+
                 // 2. Embedding
+                // Input (SeqLen, BatchSize) -> Embedded (SeqLen, BatchSize, EmbeddingSize)
                 embedded = embedding.forward(input);
 
-                // 3. Ajustar Shape para LSTM
-                lstmInput = embedded.unsqueeze(1);
+                // Console.WriteLine($"DEBUG TorchSharpModel Forward: Embedded shape before LSTM: {embedded.shape}"); // Log de debug
 
-                // 4. Passar pela LSTM
-                var lstmResult = lstm.forward(lstmInput); // Retorna (Tensor outputSeq, object state)
+                // 3. Passar pela LSTM
+                // A entrada do LSTM já está no formato correto (SeqLen, BatchSize, InputSize)
+                // CORREÇÃO ANTERIOR CONFIRMADA: Não precisa de unsqueeze(1) aqui
+                lstmResult = lstm.forward(embedded); // Atribuição à variável declarada fora do try
 
-                // 5. Extrai output e TENTA pegar h_n de Item2
-                lstmOutputSequence = lstmResult.Item1;
-                h_n = lstmResult.Item2 as Tensor; // Tenta cast direto para Tensor
+                // Verifica se o resultado do LSTM é nulo (não deveria acontecer, mas como segurança)
+                 if (lstmResult == null) {
+                     throw new InvalidOperationException("LSTM forward returned null.");
+                 }
 
-                // Verifica se a sequência de saída ou o estado oculto são nulos
-                if ((bool)(lstmOutputSequence == null)) {
-                     Console.Error.WriteLine("CRITICAL ERROR: LSTM output sequence (Item1) is null!");
-                     throw new NullReferenceException("LSTM output sequence is null.");
-                }
-                if ((bool)(h_n == null)) {
-                     // Se o cast direto 'as Tensor' falhou, Item2 NÃO é um Tensor simples.
-                     // Não conseguimos determinar o tipo exato de forma segura sem Reflection ou mais informações.
-                     // Lançamos um erro claro.
-                     Console.Error.WriteLine($"CRITICAL ERROR: LSTM final state (Item2) is not a Tensor or could not be cast. Type is {lstmResult.Item2?.GetType().FullName}. Cannot reliably get h_n.");
-                     throw new InvalidCastException($"Cannot cast LSTM state (Item2) to Tensor. Actual type: {lstmResult.Item2?.GetType().FullName}");
-                }
-                // Se chegou aqui, temos lstmOutputSequence e h_n (ambos não nulos)
+                // 4. Extrai output sequence
+                // CORRIGIDO: Acessar output_seq usando a propriedade nomeada ou Item1
+                // Não precisa mais da verificação HasValue aqui porque já verificamos acima que lstmResult != null
+                lstmOutputSequence = lstmResult.Value.output_seq; // OU lstmResult.Value.Item1
 
-                // Console.WriteLine($"DEBUG LSTM Forward: Output sequence shape {lstmOutputSequence.shape}");
-                // Console.WriteLine($"DEBUG LSTM Forward: Final Hidden (h_n) Shape {h_n.shape}");
+                // Console.WriteLine($"DEBUG TorchSharpModel Forward: LSTM output sequence shape: {lstmOutputSequence.shape}"); // Log de debug
 
-                // 6. Obter a Saída Relevante
-                 lastTimeStepHiddenState = lstmOutputSequence.select(0, -1).squeeze(0);
-                // Console.WriteLine($"DEBUG Forward: Last Time Step Hidden State Shape {lastTimeStepHiddenState.shape}");
+                // 5. Obter a Saída Relevante (último passo de tempo da sequência)
+                // lstmOutputSequence shape (SeqLen, BatchSize, HiddenSize)
+                // select(0, -1) -> (BatchSize, HiddenSize) (último elemento na dimensão SeqLen)
+                // squeeze(0) -> (HiddenSize) (Remove a dimensão BatchSize=1, assumindo BatchSize=1)
+                lastTimeStepHiddenState = lstmOutputSequence.select(0, -1).squeeze(0);
 
-                // 7. Passar pela Camada Linear Final
+                // Console.WriteLine($"DEBUG TorchSharpModel Forward: Last Time Step Hidden State Shape before Linear: {lastTimeStepHiddenState.shape}"); // Log de debug
+
+                // 6. Passar pela Camada Linear Final
+                // Input (HiddenSize) -> Output (VocabSize)
                 logits = linearOutput.forward(lastTimeStepHiddenState);
-                 // Console.WriteLine($"DEBUG Forward: Final Logits Shape {logits.shape}");
 
+                // Console.WriteLine($"DEBUG TorchSharpModel Forward: Final Logits Shape: {logits.shape}"); // Log de debug
+
+                // Verifica se logits foi criado
                 if ((bool)(logits == null)) {
-                    throw new InvalidOperationException("Logits became null after linear layer.");
+                     throw new InvalidOperationException("Linear layer returned null logits.");
                 }
 
-                // 8. RETORNAR OS LOGITS
-                return logits;
+                // 7. RETORNAR OS LOGITS
+                return logits; // RETORNA O TENSOR LOGITS
 
             }
-            catch (Exception ex) { /* ... Bloco catch ... */ throw; }
+            catch (Exception ex) {
+                Console.Error.WriteLine($"FATAL ERROR in TorchSharpModel.forward: {ex.ToString()}");
+                 // Garante dispose de TUDO em caso de erro antes de relançar
+                 embedded?.Dispose();
+                 lstmOutputSequence?.Dispose(); // Dispor o tensor output_seq
+                 lastTimeStepHiddenState?.Dispose();
+                 logits?.Dispose(); // Dispose do logits, pois não será retornado
+
+                 // CORRIGIDO: Dispor h_n e c_n da tupla se lstmResult foi criado (usando HasValue)
+                 if (lstmResult.HasValue)
+                 {
+                     lstmResult.Value.h_n?.Dispose();
+                     lstmResult.Value.c_n?.Dispose();
+                 }
+
+                throw; // Relança a exceção
+            }
             finally
             {
-                // Dispose
-                embedded?.Dispose();
-                lstmInput?.Dispose();
-                lstmOutputSequence?.Dispose();
-                h_n?.Dispose(); // Descarta h_n
-                lastTimeStepHiddenState?.Dispose();
+                // Dispose dos tensores intermediários que foram alocados NO TRY
+                // e que NÃO SÃO o tensor de retorno (logits).
+                // O tensor 'input' é de responsabilidade do chamador.
+
+                embedded?.Dispose(); // Dispor o resultado do embedding
+                lstmOutputSequence?.Dispose(); // Dispor o tensor output_seq (também lstmResult.Value.output_seq)
+                lastTimeStepHiddenState?.Dispose(); // Dispor o estado extraído
+
+                // CORRIGIDO: Dispor h_n e c_n da tupla se lstmResult foi criado (usando HasValue)
+                if (lstmResult.HasValue)
+                {
+                    lstmResult.Value.h_n?.Dispose();
+                    lstmResult.Value.c_n?.Dispose();
+                }
+
+                // logits NÃO é disposto aqui porque é o valor de retorno no caminho de sucesso.
             }
         } // Fim forward
     }
