@@ -12,6 +12,13 @@ using ChatBotAPI.Settings; // Para Linq (Any, Select)
 // ***** FIM SERVIÇO DE ESTADO *****
 var builder = WebApplication.CreateBuilder(args);
 
+Console.WriteLine("--- Calculating Max Tokens from Training Data ---");
+int calculatedMaxTokens = 50; // Valor padrão inicial razoável
+int defaultMaxTokens = 50; // Default se cálculo falhar
+int percentileTarget = 95; // Usar o 95º percentil
+int bufferTokens = 10; // Adicionar uma margem
+int absoluteMaxCap = 100; // Limite superior absoluto
+int absoluteMinCap = 15;
 // *** 1. Configuração ***
 builder.Services.Configure<ModelSettings>(builder.Configuration.GetSection("ModelSettings"));
 builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ModelSettings>>().Value);
@@ -88,7 +95,7 @@ builder.Services.AddSingleton<Tokenizer>(provider =>
     var settings = provider.GetRequiredService<ModelSettings>();
     string vocabPath = Path.GetFullPath(settings.TokenizerConfigPath); // Caminho para tokenizer.json
     string mergesPath = Path.ChangeExtension(vocabPath, ".merges");
-    
+
     // *** CORREÇÃO: Usa lowercase para acessar a propriedade C# ***
     // Garante que a propriedade 'vocab' (lowercase) de loadedModel não seja null
     return new Tokenizer(settings.MaxSequenceLength);
@@ -152,17 +159,23 @@ using (var initialScope = app.Services.CreateScope()) // Precisa de um escopo pa
     Console.Write("Mode: ");
     string? userInput = Console.ReadLine()?.Trim().ToLowerInvariant();
 
-    if (userInput == "train") {
+    if (userInput == "train")
+    {
         executionState.ForceTraining = true;
         Console.WriteLine("\n*** 'train' mode selected.\n");
-    } else if (userInput == "start") {
+    }
+    else if (userInput == "start")
+    {
         executionState.ForceTraining = false;
         Console.WriteLine("\n*** 'start' mode selected.\n");
-    } else {
+    }
+    else
+    {
         Console.WriteLine("\n*** Invalid input. Defaulting to 'start' mode.\n");
         executionState.ForceTraining = false;
     }
 }
+
 // ***** FIM INTERAÇÃO E DEFINIÇÃO DO ESTADO *****
 // *** Configuração do Pipeline de Requisição HTTP ***
 app.UseWebSockets(); // Essencial para WebSockets
@@ -173,36 +186,48 @@ using (var scope = app.Services.CreateScope())
 {
     var executionState = scope.ServiceProvider.GetRequiredService<TrainingExecutionState>(); // Pega o estado
     var settings = scope.ServiceProvider.GetRequiredService<ModelSettings>();
-    var model = scope.ServiceProvider.GetRequiredService<TorchSharpModel>(); // Pega o modelo (ainda vazio ou não carregado)
+    var model = scope.ServiceProvider
+        .GetRequiredService<TorchSharpModel>(); // Pega o modelo (ainda vazio ou não carregado)
     string modelStatePath = Path.GetFullPath(settings.ModelSavePath ?? "model_state.pt");
 
     // ***** TENTA CARREGAR O MODELO AGORA (SE NÃO FOR FORÇADO) *****
     if (!executionState.ForceTraining && File.Exists(modelStatePath))
     {
-        try {
+        try
+        {
             Console.WriteLine($"'start' mode: Found existing model state '{modelStatePath}'. Loading...");
             model.load(modelStatePath); // Carrega no objeto Singleton
             model.eval();
             Console.WriteLine("Model state loaded successfully.");
             executionState.WasModelLoaded = true; // Marca como carregado
-        } catch (Exception ex) {
-             Console.Error.WriteLine($"ERROR loading model state: {ex.Message}. Model will be trained.");
-             executionState.WasModelLoaded = false; // Garante treino
         }
-    } else {
-         executionState.WasModelLoaded = false; // Não carregou (ou foi forçado)
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"ERROR loading model state: {ex.Message}. Model will be trained.");
+            executionState.WasModelLoaded = false; // Garante treino
+        }
+    }
+    else
+    {
+        executionState.WasModelLoaded = false; // Não carregou (ou foi forçado)
     }
 
     // ***** DECIDE SE DEVE TREINAR *****
     if (executionState.ShouldRunTrainingBlock) // Usa a propriedade combinada
     {
-         if (executionState.ForceTraining && executionState.WasModelLoaded) {
-             Console.WriteLine("Starting CONTINUED training ('train' mode with loaded model)...");
-         } else if (executionState.ForceTraining && !executionState.WasModelLoaded) {
-             Console.WriteLine("Starting training FROM SCRATCH ('train' mode, no model loaded)...");
-         } else { // !executionState.ForceTraining && !executionState.WasModelLoaded
-             Console.WriteLine("Starting training FROM SCRATCH ('start' mode, no model loaded)...");
-         }
+        if (executionState.ForceTraining && executionState.WasModelLoaded)
+        {
+            Console.WriteLine("Starting CONTINUED training ('train' mode with loaded model)...");
+        }
+        else if (executionState.ForceTraining && !executionState.WasModelLoaded)
+        {
+            Console.WriteLine("Starting training FROM SCRATCH ('train' mode, no model loaded)...");
+        }
+        else
+        {
+            // !executionState.ForceTraining && !executionState.WasModelLoaded
+            Console.WriteLine("Starting training FROM SCRATCH ('start' mode, no model loaded)...");
+        }
 
         var trainer = scope.ServiceProvider.GetRequiredService<Trainer>(); // Pega o Trainer
 
@@ -214,12 +239,20 @@ using (var scope = app.Services.CreateScope())
 
         List<string> trainingSequences = rawTrainingData.Select(pair => $"{pair.input} {pair.output}").ToList();
 
-        if (trainingSequences.Any()) {
-            Console.WriteLine($"Starting training with {trainingSequences.Count} sequences for {settings.TrainingEpochs} epochs...");
+        if (trainingSequences.Any())
+        {
+            Console.WriteLine(
+                $"Starting training with {trainingSequences.Count} sequences for {settings.TrainingEpochs} epochs...");
             trainer.Train(trainingSequences, epochs: settings.TrainingEpochs); // Treina e SALVA
             Console.WriteLine("--- Training Finished ---");
-        } else { /* ... No data ... */ }
-    } else {
+        }
+        else
+        {
+            /* ... No data ... */
+        }
+    }
+    else
+    {
         // Só chega aqui se !ForceTraining E WasModelLoaded
         Console.WriteLine("Skipping training as model was successfully loaded ('start' mode).");
         Console.WriteLine("--- Training Phase Skipped ---");
@@ -313,18 +346,167 @@ static List<(string input, string output)> GetTrainingData()
     return new List<(string input, string output)>
     {
         ("Hello", "Hi! How can I help you today?"),
-        ("Hello", "Hello! What is on your mind?"),
+        ("Hello", "Hello! What’s on your mind?"),
         ("Hello", "Hey there! Nice to see you!"),
-        ("Hi", "Hello! What is on your mind?"),
-        ("Hi", "Hi! How can I assist you?"),
+        ("Hello", "Greetings! What can I do for you?"),
+        ("Hello", "Hey! How's your day going?"),
+        ("Hello", "Hi there! Ready to chat?"),
+        ("Hello", "Hello! Always happy to hear from you."),
+        ("Hello", "Hi! Let's talk."),
+        ("Hello", "Hey! Hope you’re doing well."),
+        ("Hello", "Hello! I'm here to help."),
+        ("Hello", "Good to hear from you!"),
+        ("Hello", "Welcome back!"),
+        ("Hello", "Hello, friend!"),
+        ("Hello", "Nice to connect again!"),
+        ("Hello", "Hi there, what's up?"),
+        ("Hello", "Hey hey! Let’s get started."),
+        ("Hello", "Hi! How's life treating you?"),
+        ("Hello", "What’s new with you?"),
+        ("Hello", "Hey there! Anything I can help with?"),
+        ("Hello", "Hi! Let’s make today productive."),
+        // Hi (20)
+        ("Hi", "Hello! How can I assist you?"),
+        ("Hi", "Hi! Hope you’re having a great day."),
+        ("Hi", "Hey there! What brings you here today?"),
+        ("Hi", "Howdy! What’s up?"),
+        ("Hi", "Yo! Need anything?"),
+        ("Hi", "Hiya! What's new?"),
+        ("Hi", "Hey! What’s cooking?"),
+        ("Hi", "Hi! Let’s get things rolling."),
+        ("Hi", "Hi! Got something in mind?"),
+        ("Hi", "Hey! I’m all ears."),
+        ("Hi", "Sup!"),
+        ("Hi", "Hi again! What’s next?"),
+        ("Hi", "Hey! Ready to begin?"),
+        ("Hi", "Hi! Let’s go!"),
+        ("Hi", "Hello there!"),
+        ("Hi", "Hi! What’s going on?"),
+        ("Hi", "Yo! Let’s do this."),
+        ("Hi", "Hi! You caught me just in time."),
+        ("Hi", "Good to see you!"),
+        ("Hi", "Hi! Long time no chat."),
+        // Hey (20)
         ("Hey", "Hey! What’s up?"),
+        ("Hey", "Hey there! How can I help?"),
+        ("Hey", "Hey! Always nice to chat."),
+        ("Hey", "Hey hey! Let’s get moving."),
+        ("Hey", "Yo! How’s it going?"),
+        ("Hey", "Hey! Got something on your mind?"),
+        ("Hey", "Hey! What are we working on today?"),
+        ("Hey", "Hey! You again!"),
+        ("Hey", "Hey! Let me know how I can assist."),
+        ("Hey", "Hey, buddy!"),
+        ("Hey", "Hey! Great to see you."),
+        ("Hey", "Hey there, legend!"),
+        ("Hey", "What’s happening?"),
+        ("Hey", "Hello hello!"),
+        ("Hey", "Hey! I'm right here."),
+        ("Hey", "Hey! I was just thinking about you."),
+        ("Hey", "Hey! Need anything?"),
+        ("Hey", "Hi! How can I lend a hand?"),
+        ("Hey", "Howdy! What’s the plan?"),
+        ("Hey", "Hey! What's crackin'?"),
+        // Greetings (15)
+        ("Greetings", "Greetings! How can I assist you today?"),
+        ("Greetings", "Salutations!"),
+        ("Greetings", "Greetings, traveler."),
+        ("Greetings", "Greetings! Ready for action?"),
+        ("Greetings", "Greetings! What's the mission?"),
+        ("Greetings", "Warm greetings!"),
+        ("Greetings", "Greetings and welcome."),
+        ("Greetings", "Greetings! I'm here to help."),
+        ("Greetings", "Ah, greetings!"),
+        ("Greetings", "Greetings! Let’s get started."),
+        ("Greetings", "Greetings, friend!"),
+        ("Greetings", "Hello and greetings!"),
+        ("Greetings", "Greetings! Need assistance?"),
+        ("Greetings", "Greetings! Happy to connect."),
+        ("Greetings", "Salutations! Ready to roll?"),
+        // Howdy (10)
+        ("Howdy", "Howdy! What can I do for you?"),
+        ("Howdy", "Well howdy! Nice to see you."),
+        ("Howdy", "Howdy partner!"),
+        ("Howdy", "Howdy! Let’s get goin’."),
+        ("Howdy", "Howdy! Need a hand?"),
+        ("Howdy", "Howdy! You caught me at a good time."),
+        ("Howdy", "Howdy! Let's chat."),
+        ("Howdy", "Howdy there!"),
+        ("Howdy", "Howdy! All set?"),
+        ("Howdy", "Howdy! Always a pleasure."),
+        // Yo (10)
+        ("Yo", "Yo! What’s up?"),
+        ("Yo", "Yo! How can I help?"),
+        ("Yo", "Yo yo! Ready to go."),
+        ("Yo", "Yo! Let’s do something cool."),
+        ("Yo", "Yo! You rang?"),
+        ("Yo", "Yo! What’s the vibe today?"),
+        ("Yo", "Yo! Let’s start."),
+        ("Yo", "Yo! Got a question?"),
+        ("Yo", "Yo! I'm listening."),
+        ("Yo", "Yo! Hit me with it."),
+        // Sup (10)
+        ("Sup", "Sup! What’s good?"),
+        ("Sup", "Sup! How can I help?"),
+        ("Sup", "Sup! Let’s get to it."),
+        ("Sup", "Sup! You look ready."),
+        ("Sup", "Sup! Anything exciting happening?"),
+        ("Sup", "Sup! Let’s chat."),
+        ("Sup", "Sup! What are we up to today?"),
+        ("Sup", "Sup! Here to help."),
+        ("Sup", "Sup! How’s it going?"),
+        ("Sup", "Sup! Let’s get busy."),
+        // Hi there (10)
+        ("Hi there", "Hi there! Need something?"),
+        ("Hi there", "Hi there! What can I do for you?"),
+        ("Hi there", "Hi there! How are you?"),
+        ("Hi there", "Hi there! Always a pleasure."),
+        ("Hi there", "Hi there! Ready for action?"),
+        ("Hi there", "Hi there! Let's get going."),
+        ("Hi there", "Hi there! I'm all ears."),
+        ("Hi there", "Hi there! Let me help."),
+        ("Hi there", "Hi there! Great to see you."),
+        ("Hi there", "Hi there! What's up?"),
+        // Hello again (5)
+        ("Hello again", "Hello again! Back so soon?"),
+        ("Hello again", "Welcome back!"),
+        ("Hello again", "Good to see you again!"),
+        ("Hello again", "Hello again! Let’s keep going."),
+        ("Hello again", "Hey again! What’s next?"),
+        // Additional fun ones (20)
+        ("What's up", "Not much, just ready to help!"),
+        ("What's up", "Just waiting for your next question."),
+        ("What's up", "Here and ready. What’s up with you?"),
+        ("What's up", "All systems go! What’s up?"),
+        ("What's up", "The sky! Just kidding. How can I assist?"),
+        ("Hey there", "Hey there!"),
+        ("Hey there", "Hey there! Good to see you."),
+        ("Hey there", "Hey there! Let's get started."),
+        ("Hey there", "Hey there! I'm at your service."),
+        ("Good day", "Good day! What can I help with?"),
+        ("Good day", "Good day to you too!"),
+        ("Good day", "Wishing you a great day!"),
+        ("Good day", "Let’s make this day awesome."),
+        ("Hi friend", "Hey friend! What’s up?"),
+        ("Hi friend", "Hiya!"),
+        ("Hi friend", "Good to see you, friend."),
+        ("Hi friend", "Friend! Welcome."),
+        ("Hi friend", "Hello buddy!"),
+        ("Hi friend", "Hi again, amigo!"),
+        ("Hi friend", "Hey hey! What’s new?"),
+        ("Bye", "Goodbye! Take care."),
+        ("Bye", "See you next time!"),
+        ("Bye", "Farewell! Hope to talk again soon."),
+        ("Bye", "Later! Have a great one."),
         ("Good morning", "Good morning to you too!"),
         ("Good afternoon", "Good afternoon! Hope you're doing well."),
         ("Good evening", "Good evening! How was your day?"),
         ("Hey there", "Hey! Nice to hear from you."),
         ("Greetings", "Greetings! How can I assist you?"),
-        ("Bye", "Goodbye! Have a nice day."),
-        ("See you later", "See you!"),
+        ("See you later", "See you soon!"),
+        ("See you later", "Catch you later!"),
+        ("See you later", "Until next time!"),
+        ("See you later", "Take care!"),
         ("Good night", "Good night! Sleep well."),
         ("Farewell", "Farewell! Until next time."),
         ("Talk to you later", "Sure! I'll be here."),
@@ -339,7 +521,7 @@ static List<(string input, string output)> GetTrainingData()
         ("What can I ask?", "You can ask about countries, science facts, jokes, or general knowledge!"),
         ("Who are you?", "I am a chatbot created to answer your questions!"),
         ("What is your name?", "I am Ninfa, nice to meet you!"),
-        ("What can you do?", "I can answer questions about capitals, general knowledge, and chat about various topics!"),
+        ("What can you do?","I can answer questions about capitals, general knowledge, and chat about various topics!"),
         ("What is your purpose?", "I am here to chat and answer your questions."),
         ("How old are you?", "I don't have an age, I am a computer program."),
         ("Where do you live?", "I live in the cloud, on servers!"),
@@ -375,7 +557,8 @@ static List<(string input, string output)> GetTrainingData()
         ("What is the smallest planet?", "Mercury is the smallest planet in our solar system."),
         ("What is the hottest planet?", "Venus is the hottest due to its thick atmosphere."),
         ("What is the coldest planet?", "Neptune is the coldest in our solar system."),
-        ("What is the boiling point of water?", "The boiling point of water is 100 degrees Celsius at standard pressure."),
+        ("What is the boiling point of water?",
+            "The boiling point of water is 100 degrees Celsius at standard pressure."),
         ("What is the freezing point of water?", "0 degrees Celsius."),
         ("What is the tallest mountain?", "Mount Everest is the tallest mountain in the world."),
         ("What is the deepest ocean?", "The Pacific Ocean is the deepest."),
