@@ -10,5 +10,8 @@
         public int MaxTreeDepth { get; set; } = 5;
         public int TrainingEpochs { get; set; } = 10;
         public string ModelSavePath { get; set; }
+        public float SamplingTemperature { get; set; } = 0.7f;
+        public int TopK { get; set; } = 0;
+        public float TopP { get; set; } = 0.9f;
     }
 }
