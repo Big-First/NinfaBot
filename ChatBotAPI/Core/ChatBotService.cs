@@ -9,12 +9,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using TorchSharp;
 using static TorchSharp.torch;
+using static TorchSharp.torch.nn;
 
 namespace ChatBotAPI.Core
 {
     public class ChatBotService
     {
-        private readonly TorchSharpModel model;
+        private readonly Module<Tensor, Tensor> model;
         private readonly Tokenizer tokenizer;
         private readonly Device device;
         private readonly int maxGeneratedTokens;
@@ -25,39 +26,31 @@ namespace ChatBotAPI.Core
         private readonly HashSet<int> eosTokenIds;
 
         // Construtor (aceita parâmetros de sampling)
-        public ChatBotService(
-            TorchSharpModel model,
+        public ChatBotService(Module<Tensor, Tensor> model, // Ou TransformerModel model,
             Tokenizer tokenizer,
             int maxGeneratedTokens,
             float samplingTemperature,
             int topK = 0,
             float topP = 0.0f)
         {
-            this.model = model ?? throw new ArgumentNullException(nameof(model));
+            this.model = model ?? throw new ArgumentNullException(nameof(model)); // Agora os tipos são compatíveis
             this.tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
             this.device = torch.cuda.is_available() ? torch.CUDA : torch.CPU;
-            this.model.to(this.device);
+
+            // Mover o modelo para o device agora é feito em Program.cs ANTES de injetar
+            // this.model.to(this.device); // REMOVA esta linha
 
             this.padTokenId = this.tokenizer.PadTokenId;
-            this.eosTokenIds = new HashSet<int> { this.tokenizer.EosTokenId }; // Apenas EOS 50256
+            this.eosTokenIds = new HashSet<int> { this.tokenizer.EosTokenId };
 
             this.maxGeneratedTokens = maxGeneratedTokens;
             this.samplingTemperature = Math.Max(samplingTemperature, 1e-6f);
             this.topK = topK;
             this.topP = topP;
 
-             if (this.topK > 0 && this.topP > 0.0f && this.topP < 1.0f) { /* Log Warning */ } // Aviso opcional
+            // ... (Logs de configuração como antes) ...
 
-            Console.WriteLine($"ChatBotService using device: {this.device.type}");
-            Console.WriteLine($"ChatBotService configured with:");
-            Console.WriteLine($"  PadTokenId         = {this.padTokenId}");
-            Console.WriteLine($"  EosTokenIds        = [{string.Join(", ", this.eosTokenIds)}]");
-            Console.WriteLine($"  MaxGeneratedTokens = {this.maxGeneratedTokens}");
-            Console.WriteLine($"  SamplingTemperature= {this.samplingTemperature}");
-            Console.WriteLine($"  TopK               = {this.topK} {(this.topK <= 0 ? "(Disabled)" : "")}");
-            Console.WriteLine($"  TopP (Nucleus)     = {this.topP} {(this.topP <= 0.0f || this.topP >= 1.0f ? "(Disabled)" : "")}");
-
-            this.model.eval();
+            this.model.eval(); // Coloca o modelo recebido em modo de avaliação
             Console.WriteLine("ChatBotService: Model set to eval() mode.");
         }
 

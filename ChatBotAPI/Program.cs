@@ -1,286 +1,360 @@
 using System.Net.WebSockets;
 using System.Text;
-using System.Text.Json; // Usado para JsonException, se necessário
+using System.Text.Json;
 using ChatBotAPI.Core;
-using ChatBotAPI.Models; // Namespace principal para suas classes
-// Remova 'using ChatBotAPI.Settings;' se ModelSettings está em Core
+using ChatBotAPI.enums;
+// using ChatBotAPI.Models; // Não é mais necessário para TokenWrapper
 using Microsoft.Extensions.Options;
-// Para List<>
-// Para Path, File
-using ChatBotAPI.Settings; // Para Linq (Any, Select)
+using ChatBotAPI.Settings;
+using TorchSharp;
+using static TorchSharp.torch; // Adicionado para torch.load
 
-// ***** FIM SERVIÇO DE ESTADO *****
 var builder = WebApplication.CreateBuilder(args);
 
-Console.WriteLine("--- Calculating Max Tokens from Training Data ---");
-int calculatedMaxTokens = 50; // Valor padrão inicial razoável
-int defaultMaxTokens = 50; // Default se cálculo falhar
-int percentileTarget = 95; // Usar o 95º percentil
-int bufferTokens = 10; // Adicionar uma margem
-int absoluteMaxCap = 100; // Limite superior absoluto
-int absoluteMinCap = 15;
 // *** 1. Configuração ***
 builder.Services.Configure<ModelSettings>(builder.Configuration.GetSection("ModelSettings"));
 builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ModelSettings>>().Value);
 
 // *** 2. Registro de Serviços com DI ***
-// ***** REGISTRA O SERVIÇO DE ESTADO PRIMEIRO *****
 builder.Services.AddSingleton<TrainingExecutionState>();
-// Model (lido do JSON via TokenWrapper)
-builder.Services.AddSingleton<Model>(provider =>
+
+// --- Tokenizer (usando SharpToken) ---
+builder.Services.AddSingleton<Tokenizer>(provider =>
 {
     var settings = provider.GetRequiredService<ModelSettings>();
-    string tokenizerConfigPath = Path.GetFullPath(settings.TokenizerConfigPath);
-    Console.WriteLine($"Loading tokenizer config from: {tokenizerConfigPath}");
-    if (!File.Exists(tokenizerConfigPath))
-        throw new FileNotFoundException($"Tokenizer config file not found: {tokenizerConfigPath}");
+    // Construtor SharpToken só precisa de MaxSequenceLength
+    return new Tokenizer(settings.MaxSequenceLength);
+});
 
-    try
+// --- NeuralModel (TransformerModel) ---
+builder.Services.AddSingleton<TransformerModel>(provider =>
+{
+    var settings = provider.GetRequiredService<ModelSettings>();
+    var tokenizer = provider.GetRequiredService<Tokenizer>();
+
+    int vocabSize = tokenizer.VocabSize;
+    int paddingIdx = tokenizer.PadTokenId;
+
+    if (settings.DModel % settings.Nhead != 0)
     {
-        string json = File.ReadAllText(tokenizerConfigPath);
-        // Opção PropertyNameCaseInsensitive ainda é útil se o JSON *puder* variar o case
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var tokenWrapper = JsonSerializer.Deserialize<TokenWrapper>(json, options); // Desserializa para TokenWrapper
-        if (tokenWrapper != null)
+        throw new ArgumentException("DModel must be divisible by Nhead");
+    }
+
+    Console.WriteLine($"Initializing Transformer Model:");
+    Console.WriteLine($"  Vocab Size : {vocabSize}");
+    Console.WriteLine($"  DModel     : {settings.DModel}");
+    Console.WriteLine($"  Nhead      : {settings.Nhead}");
+    Console.WriteLine($"  Num Layers : {settings.NumDecoderLayers}");
+    Console.WriteLine($"  Dim FF     : {settings.DimFeedforward}");
+    Console.WriteLine($"  Dropout    : {settings.DropoutRate}");
+    Console.WriteLine($"  Padding Idx: {paddingIdx}");
+
+    var transformerModel = new TransformerModel(
+        vocabSize: vocabSize,
+        dModel: settings.DModel,
+        nhead: settings.Nhead,
+        numDecoderLayers: settings.NumDecoderLayers,
+        dimFeedforward: settings.DimFeedforward,
+        dropoutRate: settings.DropoutRate,
+        paddingIdx: paddingIdx
+    );
+    // Definir o device inicial do modelo (CPU por padrão, mas pode ser movido depois)
+    // var initialDevice = torch.cuda.is_available() ? torch.CUDA : torch.CPU;
+    // transformerModel.to(initialDevice); // Mover parâmetros
+    // transformerModel.SetDevice(initialDevice); // Informar o modelo sobre seu device
+    return transformerModel;
+});
+
+// --- Trainer ---
+builder.Services.AddSingleton<Trainer>(provider =>
+{
+    var model = provider.GetRequiredService<TransformerModel>(); // Pede TransformerModel
+    var settings = provider.GetRequiredService<ModelSettings>();
+    var tokenizer = provider.GetRequiredService<Tokenizer>();
+    string modelSavePath = settings.ModelSavePath ?? "model_transformer_state.pt"; // Novo nome padrão
+    double learningRate = 0.001; // TODO: Ler das settings? settings.LearningRate
+
+    Console.WriteLine($"DEBUG: Program.cs - Injecting Tokenizer into Trainer. Is null? {tokenizer == null}");
+
+    // *** PASSA TransformerModel ***
+    return new Trainer(model, tokenizer, learningRate, modelSavePath);
+});
+
+
+// ***********************************************************************
+// *** CÁLCULO DE MAX TOKENS - DEPOIS DOS REGISTROS ESSENCIAIS ***
+// ***********************************************************************
+Console.WriteLine("--- Calculating Max Tokens from Training Data ---");
+int calculatedMaxTokens = 50; // Valor padrão inicial ou o valor do teste anterior
+int defaultMaxTokens = 50;
+int percentileTarget = 95;
+int bufferTokens = 10;
+int absoluteMaxCap = 100; // Ajuste conforme necessário
+int absoluteMinCap = 15; // Ajuste conforme necessário
+
+// Cria um provedor de serviços temporário APENAS para obter o Tokenizer
+var tempServiceProvider = builder.Services.BuildServiceProvider();
+using (var tempScope = tempServiceProvider.CreateScope())
+{
+    var tokenizer = tempScope.ServiceProvider.GetRequiredService<Tokenizer>();
+    List<(string input, string output)> trainingData = GetTrainingData(); // Pega os dados ATUALIZADOS
+
+    if (trainingData != null && trainingData.Any())
+    {
+        List<int> outputTokenCounts = new List<int>();
+        Console.WriteLine($"Analyzing {trainingData.Count} training pairs for token length...");
+        int count = 0;
+        foreach (var (_, outputText) in trainingData)
         {
-            Console.WriteLine($"DEBUG: tokenWrapper.version = {tokenWrapper.version ?? "null"}");
-            Console.WriteLine($"DEBUG: tokenWrapper.model is null? {tokenWrapper.model == null}");
-            if (tokenWrapper.model != null)
+            count++;
+            // Remove o EOS manualmente ANTES de tokenizar para o cálculo do comprimento
+            string outputWithoutEOS = outputText.Replace("<|endoftext|>", "");
+            if (!string.IsNullOrEmpty(outputWithoutEOS))
             {
-                Console.WriteLine($"DEBUG: tokenWrapper.model.type = {tokenWrapper.model.type ?? "null"}");
-                Console.WriteLine(
-                    $"DEBUG: tokenWrapper.model.vocab is null? {tokenWrapper.model.vocab == null}"); // *** O PONTO CRÍTICO ***
-                if (tokenWrapper.model.vocab != null)
+                try
                 {
-                    Console.WriteLine($"DEBUG: tokenWrapper.model.vocab Count = {tokenWrapper.model.vocab.Count}");
+                    // Tokeniza a saída SEM o EOS para obter o comprimento real da resposta
+                    List<int> tokens = tokenizer.Tokenize(outputWithoutEOS)
+                        .Where(t => t != tokenizer.PadTokenId)
+                        .ToList(); // Filtra padding se houver (não deveria com SharpToken puro)
+                    outputTokenCounts.Add(tokens.Count);
                 }
-                else
+                catch (Exception ex)
                 {
-                    Console.WriteLine("DEBUG: tokenWrapper.model.vocab IS NULL after deserialization!");
+                    Console.WriteLine($"Warning: Failed to tokenize output #{count} for length: {ex.Message}");
                 }
             }
             else
             {
-                Console.WriteLine("DEBUG: tokenWrapper.model IS NULL after deserialization!");
-            }
+                outputTokenCounts.Add(0);
+            } // Conta como 0 se a saída (sem EOS) for vazia
+        }
+
+        if (outputTokenCounts.Any())
+        {
+            outputTokenCounts.Sort();
+            int percentileIndex =
+                Math.Max(0, (int)Math.Ceiling(percentileTarget / 100.0 * outputTokenCounts.Count) - 1);
+            int percentileValue = outputTokenCounts[percentileIndex];
+            int maxValue = outputTokenCounts.Last();
+            double avgValue = outputTokenCounts.Average();
+            Console.WriteLine(
+                $"Output Token Count Stats: Min={outputTokenCounts.First()}, Max={maxValue}, Avg={avgValue:F1}, {percentileTarget}th Percentile={percentileValue}");
+
+            calculatedMaxTokens = percentileValue + bufferTokens;
+            calculatedMaxTokens = Math.Min(calculatedMaxTokens, maxValue + 5); // Não muito maior que o max real
+            calculatedMaxTokens = Math.Min(calculatedMaxTokens, absoluteMaxCap);
+            calculatedMaxTokens = Math.Max(calculatedMaxTokens, absoluteMinCap);
+
+            Console.WriteLine($"--> Calculated Max Generated Tokens: {calculatedMaxTokens}");
         }
         else
         {
-            Console.WriteLine("DEBUG: tokenWrapper IS NULL after deserialization!");
+            calculatedMaxTokens = defaultMaxTokens;
+            Console.WriteLine($"Warning: No valid output token lengths. Using default: {defaultMaxTokens}");
         }
-
-        // *** CORREÇÃO: Usa lowercase para acessar propriedades C# ***
-        Console.WriteLine(
-            $"TokenWrapper loaded. Version: {tokenWrapper.version}. Model Type: {tokenWrapper.model.type}. Vocab size: {tokenWrapper.model.vocab.Count}");
-
-        // *** CORREÇÃO: Retorna a propriedade correta (lowercase) ***
-        return tokenWrapper.model; // Retorna o objeto Model aninhado
     }
-    catch (Exception ex) when (ex is JsonException || ex is NotSupportedException)
+    else
     {
-        /* ... log erro ... */
-        throw;
+        calculatedMaxTokens = defaultMaxTokens;
+        Console.WriteLine($"Warning: No training data. Using default: {defaultMaxTokens}");
     }
-    catch (Exception ex)
-    {
-        /* ... log erro ... */
-        throw;
-    }
-});
+}
 
-// Tokenizer
-// *** Verifique também o registro do Tokenizer ***
-builder.Services.AddSingleton<Tokenizer>(provider =>
-{
-    var settings = provider.GetRequiredService<ModelSettings>();
-    string vocabPath = Path.GetFullPath(settings.TokenizerConfigPath); // Caminho para tokenizer.json
-    string mergesPath = Path.ChangeExtension(vocabPath, ".merges");
+tempServiceProvider.Dispose();
+Console.WriteLine("--- Max Token Calculation Finished ---");
+// ***********************************************************************
 
-    // *** CORREÇÃO: Usa lowercase para acessar a propriedade C# ***
-    // Garante que a propriedade 'vocab' (lowercase) de loadedModel não seja null
-    return new Tokenizer(settings.MaxSequenceLength);
-});
 
-// NeuralModel (implementação concreta)
-builder.Services.AddSingleton<TorchSharpModel>(provider => // Registra o tipo concreto
-{
-    var settings = provider.GetRequiredService<ModelSettings>();
-    var tokenizer = provider.GetRequiredService<Tokenizer>();
-    int actualVocabSize = tokenizer.ActualVocabSize;
-    int paddingIdx = tokenizer.PadTokenId; // Obtém o índice de padding
-
-    Console.WriteLine(
-        $"Initializing TorchSharp Model. Vocab Size: {actualVocabSize}, Embedding Size: {settings.EmbeddingSize}, Padding Idx: {paddingIdx}");
-
-    // Passa os parâmetros necessários para o modelo TorchSharp
-    var torchModel = new TorchSharpModel(
-        actualVocabSize,
-        settings.EmbeddingSize,
-        paddingIdx); // Passa o índice de padding
-
-    return torchModel;
-});
-// ChatBotService
+// --- ChatBotService (REGISTRADO DEPOIS do cálculo) ---
 builder.Services.AddSingleton<ChatBotService>(provider =>
 {
-    var model = provider.GetRequiredService<TorchSharpModel>();
+    var model = provider.GetRequiredService<TransformerModel>(); // Pede TransformerModel
     var tokenizer = provider.GetRequiredService<Tokenizer>();
     var settings = provider.GetRequiredService<ModelSettings>();
 
-    // Obtenha os valores de sampling das settings
     float temperature = settings.SamplingTemperature;
     int k = settings.TopK;
     float p = settings.TopP;
+    DecodingStrategy strategy = settings.DecodingStrategy; // Removido, ChatBotService não usa mais
 
     Console.WriteLine($"--- Injecting ChatBotService ---");
-    Console.WriteLine($"  Max Tokens: {calculatedMaxTokens}"); // Loga o valor calculado
+    Console.WriteLine($"  Max Tokens: {calculatedMaxTokens}");
     Console.WriteLine($"  Temperature: {temperature}");
     Console.WriteLine($"  Top-K: {k}");
     Console.WriteLine($"  Top-P: {p}");
+    // Console.WriteLine($"  Strategy: {strategy}"); // Removido
     Console.WriteLine($"--------------------------------");
 
-
-    // *** PASSA TODOS OS PARÂMETROS NECESSÁRIOS ***
+    // *** Passa os parâmetros para o construtor ATUALIZADO de ChatBotService ***
     return new ChatBotService(
         model,
         tokenizer,
-        calculatedMaxTokens, // <--- Valor calculado
-        temperature, // <--- Temperatura
-        k, // <--- Top-K
-        p // <--- Top-P
+        calculatedMaxTokens,
+        temperature,
+        k,
+        p
+        // strategy // Removido
     );
-});
-
-// Trainer
-builder.Services.AddSingleton<Trainer>(provider =>
-{
-    var model = provider.GetRequiredService<TorchSharpModel>();
-    var settings = provider.GetRequiredService<ModelSettings>();
-    string modelSavePath = settings.ModelSavePath ?? "model_state.pt";
-    // Coloque um breakpoint AQUI
-    var tokenizer = provider.GetRequiredService<Tokenizer>(); // Pede o Tokenizer
-    Console.WriteLine(
-        $"DEBUG: Program.cs - Injecting Tokenizer into Trainer. Is null? {tokenizer == null}"); // Para learning rate, se necessário
-    // Aqui você pode obter a taxa de aprendizado das configurações (settings.LearningRate por exemplo)
-    double learningRate = 0.001; // Ou use settings.LearningRate
-    return new Trainer(model, tokenizer, learningRate, modelSavePath);
 });
 
 
 // *** Construção do App ***
 var app = builder.Build();
+
 // ***** INTERAÇÃO COM USUÁRIO E DEFINIÇÃO DO ESTADO *****
-using (var initialScope = app.Services.CreateScope()) // Precisa de um escopo para pegar o serviço de estado
+using (var initialScope = app.Services.CreateScope())
 {
-    var executionState = initialScope.ServiceProvider.GetRequiredService<TrainingExecutionState>();
-
-    Console.WriteLine("============================================");
-    Console.WriteLine("ChatBotAPI Initializing...");
-    Console.WriteLine("Enter 'start' to load model (if exists) or train new if not found.");
-    Console.WriteLine("Enter 'train' to force training (loads model first if exists, then continues training).");
-    Console.Write("Mode: ");
-    string? userInput = Console.ReadLine()?.Trim().ToLowerInvariant();
-
-    if (userInput == "train")
-    {
-        executionState.ForceTraining = true;
-        Console.WriteLine("\n*** 'train' mode selected.\n");
-    }
-    else if (userInput == "start")
-    {
-        executionState.ForceTraining = false;
-        Console.WriteLine("\n*** 'start' mode selected.\n");
-    }
-    else
-    {
-        Console.WriteLine("\n*** Invalid input. Defaulting to 'start' mode.\n");
-        executionState.ForceTraining = false;
-    }
+    /* ... como antes ... */
 }
 
-// ***** FIM INTERAÇÃO E DEFINIÇÃO DO ESTADO *****
-// *** Configuração do Pipeline de Requisição HTTP ***
-app.UseWebSockets(); // Essencial para WebSockets
+// *** Configuração do Pipeline HTTP ***
+app.UseWebSockets();
 
-// *** TREINAMENTO NA INICIALIZAÇÃO (Condicional Controlado por TrainingExecutionState) ***
+// *** TREINAMENTO NA INICIALIZAÇÃO ***
 Console.WriteLine("--- Checking Training Phase ---");
 using (var scope = app.Services.CreateScope())
 {
-    var executionState = scope.ServiceProvider.GetRequiredService<TrainingExecutionState>(); // Pega o estado
+    var executionState = scope.ServiceProvider.GetRequiredService<TrainingExecutionState>();
     var settings = scope.ServiceProvider.GetRequiredService<ModelSettings>();
-    var model = scope.ServiceProvider
-        .GetRequiredService<TorchSharpModel>(); // Pega o modelo (ainda vazio ou não carregado)
-    string modelStatePath = Path.GetFullPath(settings.ModelSavePath ?? "model_state.pt");
+    var model = scope.ServiceProvider.GetRequiredService<TransformerModel>(); // Pede TransformerModel
+    string modelStatePath = Path.GetFullPath(settings.ModelSavePath ?? "model_transformer_state.pt");
 
-    // ***** TENTA CARREGAR O MODELO AGORA (SE NÃO FOR FORÇADO) *****
+    var targetDevice = torch.cuda.is_available() ? torch.CUDA : torch.CPU;
+    Console.WriteLine($"--- Target device for model: {targetDevice} ---");
+
+    // Move a ESTRUTURA do modelo para o device ANTES de carregar o estado
+    model.to(targetDevice);
+    model.SetDevice(targetDevice); // Informa o modelo sobre seu device
+
+    // Tenta carregar estado anterior
     if (!executionState.ForceTraining && File.Exists(modelStatePath))
     {
+        object? loadedObject = null; // Usar object? para permitir null
+        IDisposable? loadedObjectHandle = null;
+        Dictionary<string, Tensor>? state_dict = null; // Declarar aqui fora
+
         try
         {
-            Console.WriteLine($"'start' mode: Found existing model state '{modelStatePath}'. Loading...");
-            model.load(modelStatePath); // Carrega no objeto Singleton
-            model.eval();
-            Console.WriteLine("Model state loaded successfully.");
-            executionState.WasModelLoaded = true; // Marca como carregado
+            Console.WriteLine($"Loading existing TRANSFORMER model state '{modelStatePath}'...");
+
+            // 1. Carrega o objeto salvo
+            Console.WriteLine($"   Executing torch.load('{modelStatePath}')...");
+            loadedObject = torch.load(modelStatePath); // Não usar using aqui ainda
+            if (loadedObject == null) throw new InvalidOperationException("torch.load returned null.");
+            loadedObjectHandle = loadedObject as IDisposable; // Tenta obter handle
+
+            Console.WriteLine($"   torch.load returned object of type: {loadedObject.GetType().FullName}");
+
+            // 2. Tenta obter o Dicionário
+            state_dict = loadedObject as Dictionary<string, Tensor>; // Tentativa A: Cast direto
+
+            if (state_dict == null) // Se o cast falhou
+            {
+                // Tentativa B: Método StateDict() via Reflection
+                var stateDictMethod = loadedObject.GetType().GetMethod("StateDict",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                if (stateDictMethod != null &&
+                    stateDictMethod.ReturnType.IsAssignableTo(typeof(Dictionary<string, Tensor>))) // Usa IsAssignableTo
+                {
+                    Console.WriteLine(
+                        "   Found public StateDict() method returning compatible Dictionary. Invoking...");
+                    try
+                    {
+                        state_dict = stateDictMethod.Invoke(loadedObject, null) as Dictionary<string, Tensor>;
+                        if (state_dict != null)
+                            Console.WriteLine($"   StateDict() successful. Found {state_dict.Count} keys.");
+                        else Console.Error.WriteLine("   StateDict() method returned null or incompatible type.");
+                    }
+                    catch (Exception invokeEx)
+                    {
+                        Console.Error.WriteLine($"   Error invoking StateDict(): {invokeEx.Message}");
+                    }
+                }
+                else
+                {
+                    Console.Error.WriteLine(
+                        "   Loaded object is not a Dictionary and no suitable StateDict() method found.");
+                    // Tentativa C: É um Tensor único?
+                    if (loadedObject is Tensor loadedTensor)
+                    {
+                        Console.Error.WriteLine(
+                            $"   Loaded object is a Tensor shape {loadedTensor.shape}. Cannot load this into model state_dict.");
+                        // Não descartamos aqui, será feito pelo loadedObjectHandle no finally
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine($"   Loaded object IS a Dictionary. Found {state_dict.Count} keys.");
+            }
+
+            // 3. Aplica o state_dict SE ele foi obtido corretamente
+            if (state_dict != null)
+            {
+                Console.WriteLine(
+                    $"   Applying loaded state dict ({state_dict.Count} items) to model on {targetDevice}...");
+                model.load_state_dict(state_dict, strict: false); // Passa o dicionário
+                Console.WriteLine($"   State dict applied successfully.");
+
+                model.eval();
+                Console.WriteLine("Transformer model state loaded successfully.");
+                executionState.WasModelLoaded = true;
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    "Could not obtain a valid state dictionary (Dictionary<string, Tensor>) from the loaded file.");
+            }
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"ERROR loading model state: {ex.Message}. Model will be trained.");
-            executionState.WasModelLoaded = false; // Garante treino
+            Console.Error.WriteLine($"ERROR loading model state: {ex.ToString()}");
+            executionState.WasModelLoaded = false;
+        }
+        finally
+        {
+            // *** CORREÇÃO: Descarta APENAS o objeto carregado, NÃO o dicionário ***
+            loadedObjectHandle?.Dispose();
+            Console.WriteLine("   Finished load attempt (check logs for success/failure).");
         }
     }
     else
     {
-        executionState.WasModelLoaded = false; // Não carregou (ou foi forçado)
+        executionState.WasModelLoaded = false;
     }
 
-    // ***** DECIDE SE DEVE TREINAR *****
-    if (executionState.ShouldRunTrainingBlock) // Usa a propriedade combinada
+    // Decide se treina
+    if (executionState.ShouldRunTrainingBlock)
     {
-        if (executionState.ForceTraining && File.Exists(modelStatePath))
-        {
-            Console.WriteLine("Starting CONTINUED training ('train' mode with loaded model)...");
-            Console.WriteLine($"'start' mode: Found existing model state '{modelStatePath}'. Loading...");
-            model.load(modelStatePath); // Carrega no objeto Singleton
-            model.eval();
-        }
-        else if (executionState.ForceTraining && !File.Exists(modelStatePath))
-        {
-            Console.WriteLine("Starting training FROM SCRATCH ('train' mode, no model loaded)...");
-        }
-        else
-        {
-            // !executionState.ForceTraining && !executionState.WasModelLoaded
-            Console.WriteLine("Starting training FROM SCRATCH ('start' mode, no model loaded)...");
-        }
+        if (executionState.ForceTraining && executionState.WasModelLoaded)
+            Console.WriteLine("Starting CONTINUED training (Transformer)...");
+        else Console.WriteLine("Starting training FROM SCRATCH (Transformer)...");
 
-        var trainer = scope.ServiceProvider.GetRequiredService<Trainer>(); // Pega o Trainer
-
-        // Gera/Pega dados
-        int numberOfTrainingPairs = 1500;
-        Console.WriteLine($"Generating {numberOfTrainingPairs} training pairs...");
-        List<(string input, string output)> rawTrainingData = GetTrainingData();
+        var trainer = scope.ServiceProvider.GetRequiredService<Trainer>(); // Trainer agora usa TransformerModel
+        Console.WriteLine($"Loading training data...");
+        List<(string input, string output)> rawTrainingData = GetTrainingData(); // Pega dados com EOS
         Console.WriteLine($"Generated {rawTrainingData.Count} actual pairs.");
-
-        List<string> trainingSequences = rawTrainingData.Select(pair => $"{pair.input} {pair.output}").ToList();
+        List<string> trainingSequences = rawTrainingData
+            .Select(pair => $"{pair.input} {pair.output}") // Formato Input + Output<EOS>
+            .ToList();
 
         if (trainingSequences.Any())
         {
             Console.WriteLine(
-                $"Starting training with {trainingSequences.Count} sequences for {settings.TrainingEpochs} epochs...");
-            trainer.Train(trainingSequences, epochs: settings.TrainingEpochs); // Treina e SALVA
+                $"Starting training with {trainingSequences.Count} sequences for {settings.TrainingEpochs} epochs on {targetDevice}...");
+            // A classe Trainer precisa ser adaptada para usar o device correto internamente se não o fizer já
+            await trainer.Train(trainingSequences, epochs: settings.TrainingEpochs); // Assumindo Train async
             Console.WriteLine("--- Training Finished ---");
         }
         else
         {
-            /* ... No data ... */
+            Console.WriteLine("No training data to process.");
         }
     }
     else
     {
-        // Só chega aqui se !ForceTraining E WasModelLoaded
-        Console.WriteLine("Skipping training as model was successfully loaded ('start' mode).");
-        Console.WriteLine("--- Training Phase Skipped ---");
+        Console.WriteLine("Skipping training.");
     }
 }
 
@@ -815,7 +889,6 @@ static List<(string input, string output)> GetTrainingData()
         ("I like you", "I like chatting with you too!<|endoftext|>")
     };
 }
-// ... (Função GetTrainingData como antes) ...
 
 Console.WriteLine("Setup complete. Starting the web server...");
-await app.RunAsync(); // Mantém o servidor rodando
+await app.RunAsync();
