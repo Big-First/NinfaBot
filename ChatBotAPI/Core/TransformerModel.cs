@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Core/TransformerModel.cs - AJUSTADO para retornar logits completos E corrigir .Handle
+
+using System;
 using TorchSharp;
 using TorchSharp.Modules;
 using static TorchSharp.torch;
@@ -15,7 +17,7 @@ namespace ChatBotAPI.Core
         private readonly LayerNorm norm;
         private readonly Linear outputLayer;
         private readonly int paddingIdx;
-        public Device device = torch.CPU; // Default
+        private Device device = torch.CPU; // Default
 
         public TransformerModel(int vocabSize, int dModel, int nhead, int numDecoderLayers, int dimFeedforward, double dropoutRate, int paddingIdx)
             : base(nameof(TransformerModel))
@@ -24,11 +26,10 @@ namespace ChatBotAPI.Core
             this.paddingIdx = paddingIdx;
 
             this.tokenEmbedding = Embedding(vocabSize, dModel, padding_idx: this.paddingIdx);
-            this.posEncoder = new PositionalEncoding(dModel, dropoutRate); // Usa a versão corrigida/aprendível
+            this.posEncoder = new PositionalEncoding(dModel, dropoutRate);
             this.decoderLayers = ModuleList<TransformerDecoderLayer>();
             for (int i = 0; i < numDecoderLayers; i++)
             {
-                // Usa construtor mínimo que funciona na sua versão do TorchSharp
                 var decoderLayerInstance = TransformerDecoderLayer(
                     d_model: dModel, nhead: nhead, dim_feedforward: dimFeedforward, dropout: dropoutRate
                 );
@@ -46,44 +47,42 @@ namespace ChatBotAPI.Core
             Console.WriteLine($"TransformerModel internal device explicitly set to: {this.device}");
         }
 
-        // Gera a máscara causal NO DEVICE DO INPUT
         private Tensor generate_square_subsequent_mask(long sz, Device device)
         {
             var mask = torch.triu(torch.full(new long[] { sz, sz }, float.NegativeInfinity, device: device), diagonal: 1);
             return mask;
         }
 
-        // Gera a máscara de padding NO DEVICE DO INPUT
-        private Tensor generate_padding_mask(Tensor src_transposed) // Recebe src já transposto (SeqLen, Batch)
+        private Tensor generate_padding_mask(Tensor src_transposed)
         {
-             Tensor src_pad_mask = src_transposed.eq(this.paddingIdx).transpose(0, 1); // Output (Batch, SeqLen)
+             Tensor src_pad_mask = src_transposed.eq(this.paddingIdx).transpose(0, 1);
              return src_pad_mask;
         }
 
-
-        // --- Método forward AJUSTADO para retornar TODOS os logits ---
         public override Tensor forward(Tensor src) // src chega com shape (Batch, SeqLen)
         {
-            Device currentDevice = this.device; // Usa o device configurado para o módulo
+            Device currentDevice = this.device;
             ScalarType longType = ScalarType.Int64;
 
-            // Garante tipo e device (fazendo em 2 passos)
             Tensor srcProcessed = src.alias();
             bool typeConverted = false;
             bool movedDevice = src.device.type != currentDevice.type || src.device.index != currentDevice.index;
+            bool aliasUsed = true; // Assume que começamos com alias
 
             if (src.dtype != longType) {
-                var temp = srcProcessed.alias();
-                srcProcessed.Dispose();
-                srcProcessed = temp.to(longType);
+                var temp = srcProcessed.alias(); // Cria alias do tensor atual (que pode ser o src original ou o movido)
+                if (aliasUsed) srcProcessed.Dispose(); // Descarta alias anterior se houver
+                srcProcessed = temp.to(longType); // Converte
                 typeConverted = true;
-                temp.Dispose();
-                if(movedDevice) Console.WriteLine("Warning: Input converted to Int64."); // Log apenas se ambos mudaram
+                aliasUsed = false; // Agora é uma cópia ou novo tensor
+                temp.Dispose(); // Descarta alias temporário
+                if(movedDevice) Console.WriteLine("Warning: Input converted to Int64.");
             }
             if (movedDevice) {
-                var temp = srcProcessed.alias();
-                srcProcessed.Dispose();
-                srcProcessed = temp.to(currentDevice);
+                var temp = srcProcessed.alias(); // Cria alias do tensor atual
+                if (!aliasUsed && srcProcessed.Handle != src.Handle) srcProcessed.Dispose(); // Descarta anterior se não era alias
+                srcProcessed = temp.to(currentDevice); // Move
+                aliasUsed = false; // Agora é uma cópia ou novo tensor
                 temp.Dispose();
                  Console.WriteLine($"Warning: Input tensor moved to device {currentDevice}.");
             }
@@ -92,11 +91,18 @@ namespace ChatBotAPI.Core
             Tensor src_transposed = srcProcessed.transpose(0, 1);
             long seqLen = src_transposed.shape[0];
 
-            // Dispose do tensor processado se ele for diferente do input original
-             if (srcProcessed.Handle != src.Handle) srcProcessed.Dispose();
+            // *** CORREÇÃO: Usa 'handle' (minúsculo) para comparar ponteiros de tensores ***
+            if (!aliasUsed && srcProcessed.Handle != src.Handle) {
+                 Console.WriteLine("DEBUG: Disposing intermediate srcProcessed tensor."); // Log opcional
+                 srcProcessed.Dispose(); // Descarta o tensor intermediário final se foi criado
+            } else if (aliasUsed && srcProcessed.Handle != src_transposed.Handle) {
+                 // Se era só alias E não é o mesmo handle que o transposto (raro), descarta o alias
+                 srcProcessed.Dispose();
+            }
+
 
             Tensor? tgt_mask = null, src_key_padding_mask = null, embedded_src = null, src_with_pos = null;
-            Tensor? decoderOutput = null, outputLogits = null; // Não precisamos mais de lastTokenLogits aqui
+            Tensor? decoderOutput = null, outputLogits = null;
 
             try
             {
@@ -112,7 +118,8 @@ namespace ChatBotAPI.Core
                 decoderOutput = src_with_pos.alias();
                 foreach (var layer in this.decoderLayers) {
                     var currentLayerInput = decoderOutput.alias();
-                    decoderOutput.Dispose();
+                    // Se decoderOutput não for o alias original de src_with_pos, descarte-o
+                    if (decoderOutput.Handle != src_with_pos.Handle && decoderOutput.Handle != currentLayerInput.Handle) decoderOutput.Dispose();
                     decoderOutput = layer.forward(tgt: currentLayerInput, memory: src_with_pos, tgt_mask: tgt_mask, memory_mask: null, tgt_key_padding_mask: src_key_padding_mask, memory_key_padding_mask: src_key_padding_mask);
                     currentLayerInput.Dispose();
                  }
@@ -120,27 +127,27 @@ namespace ChatBotAPI.Core
                 // 4. Normalização Final
                 if (this.norm != null) {
                      var normedOutput = this.norm.forward(decoderOutput);
-                     decoderOutput.Dispose();
+                      // Descarta a saída anterior do loop decoder se ela for diferente da saída normalizada
+                      if (decoderOutput.Handle != normedOutput.Handle) decoderOutput.Dispose();
                      decoderOutput = normedOutput;
                 }
 
                 // 5. Camada Linear de Saída
                 outputLogits = this.outputLayer.forward(decoderOutput); // Shape (SeqLen, Batch, VocabSize)
 
-                // *** CORREÇÃO: Retorna TODOS os logits da sequência ***
+                // *** Retorna TODOS os logits ***
                 return outputLogits;
             }
             finally
             {
-                 // Dispose
+                 // Dispose dos tensores criados neste escopo
                  src_transposed?.Dispose();
                  tgt_mask?.Dispose();
                  src_key_padding_mask?.Dispose();
                  embedded_src?.Dispose();
-                 src_with_pos?.Dispose();
-                 decoderOutput?.Dispose();
-                 // Não descartamos outputLogits aqui, pois ele é o valor de retorno
-                 // O chamador (Trainer) será responsável por descartá-lo.
+                 src_with_pos?.Dispose(); // A memória original
+                 decoderOutput?.Dispose(); // A saída final do decoder/norm antes da camada linear
+                 // outputLogits é retornado, não descartado aqui
             }
         } // --- Fim Forward ---
 

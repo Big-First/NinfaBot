@@ -444,6 +444,53 @@ static List<(string input, string output)> GetTrainingData()
     // Lista de pares (input, output) com <|endoftext|> no final de cada output
     return new List<(string input, string output)>
     {
+        // --- Aberturas / Início de conversa ---
+        ("Hey", "Hey! What brings you here today?<|endoftext|>"),
+        ("Hi there", "Hi! Looking to meet someone new?<|endoftext|>"),
+        ("Hello", "Hello! Ready to find your match?<|endoftext|>"),
+        ("How's it going?", "All good here! How about you?<|endoftext|>"),
+        ("Nice profile!", "Thanks! Yours looks great too!<|endoftext|>"),
+        ("You seem interesting", "Thanks! I’d love to get to know you better.<|endoftext|>"),
+        ("What's up?", "Not much! Just swiping and hoping. You?<|endoftext|>"),
+        ("How's your day?", "It's been good, thanks for asking! How about yours?<|endoftext|>"),
+        ("Hi, I'm Alex", "Nice to meet you, Alex!<|endoftext|>"),
+        ("Lovely smile", "Thank you! You're sweet.<|endoftext|>"),
+
+        // --- Interesses pessoais ---
+        ("What do you do for fun?", "I love traveling, reading, and cooking. You?<|endoftext|>"),
+        ("Any favorite movies?", "I’m a huge fan of sci-fi and thrillers. You?<|endoftext|>"),
+        ("Do you like music?", "Absolutely! I listen to everything from pop to jazz.<|endoftext|>"),
+        ("Are you into fitness?", "Yes! I go to the gym regularly and love hiking.<|endoftext|>"),
+        ("What's your dream vacation?", "Probably Japan or Iceland. You?<|endoftext|>"),
+        ("Do you like animals?", "Yes, I'm a dog person! Do you have pets?<|endoftext|>"),
+        ("What’s your zodiac sign?", "I’m a Leo! What about you?<|endoftext|>"),
+        ("Do you cook?", "Yes, I love cooking Italian food. Want to try someday?<|endoftext|>"),
+        ("Read any good books lately?", "Yes, I just finished a great mystery novel!<|endoftext|>"),
+        ("Do you watch Netflix?", "Too much! What’s your favorite show?<|endoftext|>"),
+
+        // --- Elogios e flertes leves ---
+        ("You're really cute", "Aww, thank you! You're making me blush.<|endoftext|>"),
+        ("I love your style", "Thank you! I try to keep it fresh.<|endoftext|>"),
+        ("You have amazing eyes", "That’s such a sweet thing to say.<|endoftext|>"),
+        ("You're charming", "You’re making me smile over here!<|endoftext|>"),
+        ("Such a nice vibe", "Thank you! I feel the same about you.<|endoftext|>"),
+        ("You’re funny", "Haha thanks! I try. Wanna hear a joke?<|endoftext|>"),
+        ("Great energy", "Thank you! I’m just being me.<|endoftext|>"),
+        ("You're so cool", "Stop it, you're too kind!<|endoftext|>"),
+        ("Love your taste", "Thanks! We might have a lot in common.<|endoftext|>"),
+        ("You're adorable", "You're not too bad yourself!<|endoftext|>"),
+
+        // --- Perguntas sobre relacionamento ---
+        ("What are you looking for?", "I'm looking for a real connection. You?<|endoftext|>"),
+        ("Are you single?", "Yes, totally single. And you?<|endoftext|>"),
+        ("Ever been in love?", "Yes, once. It was intense. You?<|endoftext|>"),
+        ("Do you believe in soulmates?", "I do. Do you?<|endoftext|>"),
+        ("What's your love language?", "Quality time and physical touch. You?<|endoftext|>"),
+        ("How long have you been on here?", "Just started recently! You?<|endoftext|>"),
+        ("Do you believe in fate?", "A little bit! Maybe we matched for a reason?<|endoftext|>"),
+        ("What’s your ideal first date?", "A cozy coffee date or a walk in the park.<|endoftext|>"),
+        ("Are you open to something serious?", "Definitely, if the connection is real.<|endoftext|>"),
+        ("Ever had a long-distance relationship?", "Yes, and it taught me a lot.<|endoftext|>"),
         // --- Basic Greetings ---
         ("Hello", "Hi! How can I help you today?<|endoftext|>"),
         ("Hi", "Hello! What can I do for you?<|endoftext|>"),

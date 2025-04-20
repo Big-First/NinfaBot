@@ -11,7 +11,7 @@ namespace ChatBotAPI.Core
     {
         private readonly GptEncoding _gptEncoding;
 
-        public int PadTokenId { get; private set; }
+        public int PadTokenId { get; private set; } = 50256;
         public int UnkTokenId { get; private set; }
         public int EosTokenId { get; private set; }
         public int VocabSize { get; private set; }
