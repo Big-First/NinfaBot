@@ -1,16 +1,18 @@
-﻿// Tokenizer.cs - Permitindo <|endoftext|> no Encode
+﻿// Tokenizer.cs
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SharpToken; // Garanta o using
+using SharpToken;
 
 namespace ChatBotAPI.Core
 {
-    public partial class Tokenizer
+    public partial class Tokenizer // Mantém partial se houver outra parte
     {
         private readonly GptEncoding _gptEncoding;
+        private readonly int maxSequenceLength; // Max len para TRUNCAMENTO, não padding aqui
 
+        // --- IDs ---
         public int PadTokenId { get; private set; }
         public int UnkTokenId { get; private set; }
         public int EosTokenId { get; private set; }
@@ -18,92 +20,85 @@ namespace ChatBotAPI.Core
 
         private const int StandardGpt2VocabSize = 50257;
         private const int StandardGpt2EosPadId = 50256;
-        private const string StandardGpt2EosToken = "<|endoftext|>"; // Guarda a string
 
-        // --- NOVO: Conjunto de tokens especiais a permitir no Encode ---
-        private readonly HashSet<string> _allowedSpecialTokens;
-
-        private readonly int maxSequenceLength;
-
+        // Construtor (como antes)
         public Tokenizer(int maxSequenceLength)
         {
-            this.maxSequenceLength = maxSequenceLength;
-            Console.WriteLine($"Initializing Tokenizer using SharpToken for GPT-2 (r50k_base) encoding.");
+             this.maxSequenceLength = maxSequenceLength; // Guarda o max len para truncamento opcional
+             Console.WriteLine($"Initializing Tokenizer using SharpToken for GPT-2 (r50k_base) encoding. MaxSeqLen for truncation/padding = {maxSequenceLength}");
+             try {
+                 const string encodingName = "r50k_base";
+                 _gptEncoding = GptEncoding.GetEncoding(encodingName);
+                 if (_gptEncoding == null) throw new InvalidOperationException(/*...*/);
 
-            try
-            {
-                const string encodingName = "r50k_base";
-                _gptEncoding = GptEncoding.GetEncoding(encodingName);
-                if (_gptEncoding == null) throw new InvalidOperationException(/*...*/);
-                Console.WriteLine($"Successfully obtained '{encodingName}' encoding from SharpToken."); // Usei ??
+                 this.PadTokenId = StandardGpt2EosPadId; // 50256
+                 this.EosTokenId = StandardGpt2EosPadId; // 50256
+                 this.UnkTokenId = -1;
+                 this.VocabSize = StandardGpt2VocabSize; // 50257
 
-                // Define IDs e VocabSize
-                this.PadTokenId = StandardGpt2EosPadId;
-                this.EosTokenId = StandardGpt2EosPadId;
-                this.UnkTokenId = -1;
-                this.VocabSize = StandardGpt2VocabSize;
-
-                // *** INICIALIZA O CONJUNTO DE TOKENS PERMITIDOS ***
-                // Começa permitindo o token EOS/PAD padrão que estamos usando
-                this._allowedSpecialTokens = new HashSet<string> { StandardGpt2EosToken };
-                // Você poderia adicionar outros tokens especiais aqui se os usasse
-                // Ex: _allowedSpecialTokens.Add("<|im_start|>");
-
-                Console.WriteLine($"Tokenizer initialized using SharpToken.");
-                Console.WriteLine($"--> Using Standard GPT-2 Values for Model Config:");
-                Console.WriteLine($"    Vocab Size: {this.VocabSize}");
-                Console.WriteLine($"    Pad Token ID: {this.PadTokenId} ('{StandardGpt2EosToken}')"); // Mostra string
-                Console.WriteLine($"    EOS Token ID: {this.EosTokenId} ('{StandardGpt2EosToken}')"); // Mostra string
-                Console.WriteLine($"    UNK Token ID: {this.UnkTokenId} (N/A)");
-                Console.WriteLine($"    Allowed Special Tokens for Encode: [{string.Join(", ", _allowedSpecialTokens)}]"); // Log dos permitidos
-
-            }
-            catch (Exception ex) { /*...*/ throw; }
+                 Console.WriteLine("Tokenizer initialized using SharpToken.");
+                 Console.WriteLine("--> Using Standard GPT-2 Values for Model Config:");
+                 Console.WriteLine($"    Vocab Size: {this.VocabSize}");
+                 Console.WriteLine($"    Pad Token ID: {this.PadTokenId} ('<|endoftext|>')");
+                 Console.WriteLine($"    EOS Token ID: {this.EosTokenId} ('<|endoftext|>')");
+                 Console.WriteLine($"    UNK Token ID: {this.UnkTokenId} (N/A)");
+             } catch (Exception ex) { /*...*/ throw; }
         }
 
-        // Property ActualVocabSize
         public int ActualVocabSize => this.VocabSize;
 
-        // --- Método Tokenize MODIFICADO ---
-        public int[] Tokenize(string text)
+        // ***** MÉTODO Tokenize MODIFICADO *****
+        public int[] Tokenize(string text, HashSet<string>? allowedSpecial = null, bool applyPaddingTruncation = true)
         {
             if (_gptEncoding == null) throw new InvalidOperationException("SharpToken encoding not initialized.");
             try
             {
-                // *** CHAMA A SOBRECARGA DE Encode passando allowedSpecial ***
-                List<int> tokens = _gptEncoding.Encode(text, allowedSpecial: _allowedSpecialTokens);
+                // Usa o allowedSpecial passado ou um default se nulo
+                var effectiveAllowedSpecial = allowedSpecial ?? new HashSet<string> { "<|endoftext|>" };
 
-                // Aplica Truncamento e Padding MANUALMENTE
-                int currentLength = tokens.Count;
-                if (currentLength > maxSequenceLength) { tokens = tokens.GetRange(0, maxSequenceLength); }
-                else if (currentLength < maxSequenceLength) { tokens.AddRange(Enumerable.Repeat(this.PadTokenId, maxSequenceLength - currentLength)); }
+                // Codifica o texto
+                List<int> tokens = _gptEncoding.Encode(text, allowedSpecial: effectiveAllowedSpecial);
+
+                // ***** APLICA PADDING/TRUNCAMENTO APENAS SE SOLICITADO *****
+                if (applyPaddingTruncation)
+                {
+                    int currentLength = tokens.Count;
+                    if (currentLength > maxSequenceLength)
+                    {
+                        // Trunca para o tamanho máximo
+                        tokens = tokens.GetRange(0, maxSequenceLength);
+                         // Console.WriteLine($"Warning: Input text truncated to {maxSequenceLength} tokens.");
+                    }
+                    else if (currentLength < maxSequenceLength)
+                    {
+                        // Adiciona Padding (ID 50256) até o tamanho máximo
+                        tokens.AddRange(Enumerable.Repeat(this.PadTokenId, maxSequenceLength - currentLength));
+                    }
+                }
+                // Se applyPaddingTruncation for false, retorna apenas os tokens reais da codificação
+
                 return tokens.ToArray();
-            }
-            catch (ArgumentException argEx) when (argEx.Message.Contains("Disallowed special token"))
-            {
-                 // Log mais específico se o erro persistir (não deveria)
-                 Console.Error.WriteLine($"SharpToken Tokenize Error: Still encountered a disallowed token even after allowing some. Input text (start): '{text.Substring(0, Math.Min(50, text.Length))}'");
-                 Console.Error.WriteLine($"Full Error: {argEx}");
-                 throw; // Re-lança
             }
             catch (Exception ex) { Console.Error.WriteLine($"SharpToken Tokenize Error: {ex}"); throw; }
         }
+         // ***** FIM MÉTODO Tokenize MODIFICADO *****
 
-        // --- Método Detokenize (Inalterado) ---
+
+        // Método Detokenize (como antes)
         public string Detokenize(int[] tokens)
         {
              if (_gptEncoding == null) throw new InvalidOperationException("SharpToken encoding not initialized.");
-              try {
-                  // SharpToken Decode lida com <|endoftext|> por padrão
-                  List<int> idsToDecode = tokens.Where(t => t != this.PadTokenId).ToList(); // Remove padding antes
-                  if (idsToDecode.Count == 0) return "";
-                  // O Decode padrão deve remover o <|endoftext|> se ele estiver na lista idsToDecode
-                  string decodedText = _gptEncoding.Decode(idsToDecode);
-                  return decodedText.Trim();
-              } catch (Exception ex) { /*...*/ return "[Detokenization Error]"; }
+             try
+             {
+                 List<int> idsToDecode = tokens.Where(t => t != this.PadTokenId).ToList();
+                 if (idsToDecode.Count == 0) return "";
+                 string decodedText = _gptEncoding.Decode(idsToDecode);
+                 return decodedText.Trim();
+             }
+             catch (Exception ex) { Console.Error.WriteLine($"SharpToken Detokenize Error: {ex}"); return "[Detokenization Error]"; }
         }
 
-        // Método GetMaxSequenceLength
+        // Método GetMaxSequenceLength (como antes)
         public int GetMaxSequenceLength()
         {
             return this.maxSequenceLength;

@@ -46,7 +46,10 @@ namespace ChatBotAPI.Core
             this.topK = topK;
             this.topP = topP;
 
-             if (this.topK > 0 && this.topP > 0.0f && this.topP < 1.0f) { /* Log Warning */ } // Aviso opcional
+            if (this.topK > 0 && this.topP > 0.0f && this.topP < 1.0f)
+            {
+                /* Log Warning */
+            } // Aviso opcional
 
             Console.WriteLine($"ChatBotService using device: {this.device.type}");
             Console.WriteLine($"ChatBotService configured with:");
@@ -55,26 +58,42 @@ namespace ChatBotAPI.Core
             Console.WriteLine($"  MaxGeneratedTokens = {this.maxGeneratedTokens}");
             Console.WriteLine($"  SamplingTemperature= {this.samplingTemperature}");
             Console.WriteLine($"  TopK               = {this.topK} {(this.topK <= 0 ? "(Disabled)" : "")}");
-            Console.WriteLine($"  TopP (Nucleus)     = {this.topP} {(this.topP <= 0.0f || this.topP >= 1.0f ? "(Disabled)" : "")}");
+            Console.WriteLine(
+                $"  TopP (Nucleus)     = {this.topP} {(this.topP <= 0.0f || this.topP >= 1.0f ? "(Disabled)" : "")}");
 
             this.model.eval();
             Console.WriteLine("ChatBotService: Model set to eval() mode.");
         }
 
         // --- Função de Debug (pode ser mantida ou removida se não for mais útil) ---
-        private string PrintGeneratedTextDebug(List<int> generatedTokenIds, string contextMessage = "Detokenized Debug Output")
+        private string PrintGeneratedTextDebug(List<int> generatedTokenIds,
+            string contextMessage = "Detokenized Debug Output")
         {
             Console.WriteLine($"--- DEBUG ({contextMessage}) ---");
-            if (generatedTokenIds == null || !generatedTokenIds.Any()) { Console.WriteLine("DEBUG: Token list empty/null."); Console.WriteLine("--- END DEBUG ---"); return ""; }
-            Console.WriteLine($"DEBUG: Trying to detokenize {generatedTokenIds.Count} tokens: [{string.Join(", ", generatedTokenIds)}]");
+            if (generatedTokenIds == null || !generatedTokenIds.Any())
+            {
+                Console.WriteLine("DEBUG: Token list empty/null.");
+                Console.WriteLine("--- END DEBUG ---");
+                return "";
+            }
+
+            Console.WriteLine(
+                $"DEBUG: Trying to detokenize {generatedTokenIds.Count} tokens: [{string.Join(", ", generatedTokenIds)}]");
             try
             {
                 string detokenizedText = tokenizer.Detokenize(generatedTokenIds.ToArray());
                 Console.WriteLine($"DEBUG: Detokenized Text: >>>{detokenizedText}<<<"); // Log sempre, mesmo se vazio
                 return detokenizedText;
             }
-            catch (Exception ex) { Console.Error.WriteLine($"DEBUG: Error during detokenization: {ex.Message}");}
-            finally { Console.WriteLine("--- END DEBUG ---"); }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"DEBUG: Error during detokenization: {ex.Message}");
+            }
+            finally
+            {
+                Console.WriteLine("--- END DEBUG ---");
+            }
+
             return "";
         }
 
@@ -86,16 +105,21 @@ namespace ChatBotAPI.Core
 
             Tensor? initialInputTensor = null;
             Tensor? currentInput = null;
-            List<int> generatedTokenIds = new List<int>();
+            List<int> generatedTokenIds = new List<int>(); // A lista que estava ficando vazia
             string finalResponseMessage = "[Error: Generation failed]";
             int lastPredictedTokenId = -1;
 
             try
             {
-                // 1. Tokenizar Input e 2. Preparar Tensor Inicial (como antes)
-                int[] inputTokens = tokenizer.Tokenize(message);
+                // 1. Tokenizar Input e 2. Preparar Tensor Inicial
+                int[] inputTokens = tokenizer.Tokenize(message); // Certifique-se que Tokenize permite EOS
                 int[] initialSequence = inputTokens.Where(t => t != this.padTokenId).ToArray();
-                if (initialSequence.Length == 0) { await SendMessage(webSocket, "[Error: Invalid input]"); return; } // Simplificado
+                if (initialSequence.Length == 0)
+                {
+                    await SendMessage(webSocket, "[Error: Invalid input]");
+                    return;
+                }
+
                 long[] initialLongs = initialSequence.Select(id => (long)id).ToArray();
                 initialInputTensor = tensor(initialLongs, dtype: ScalarType.Int64).to(device);
                 currentInput = initialInputTensor.clone().to(device);
@@ -104,11 +128,13 @@ namespace ChatBotAPI.Core
                 model.eval();
                 using (var noGrad = torch.no_grad())
                 {
-                    // Use um limite maior para o teste de probabilidade EOS
-                    int generationLimit = 100; // Aumente se necessário
+                    // Use um limite maior para este teste específico, se desejar
+                    // int generationLimit = 150;
+                    // Use o valor configurado no construtor:
+                    int generationLimit = this.maxGeneratedTokens;
                     Console.WriteLine($"ChatBotService: Starting generation loop (limit: {generationLimit} steps).");
 
-                    for (int step = 0; step < generationLimit; step++) // Use o limite maior aqui
+                    for (int step = 0; step < generationLimit; step++) // Use o limite correto
                     {
                         Tensor? outputLogits = null, scaledLogits = null, finalLogitsForSampling = null;
                         Tensor? probabilities = null, predictedIndexTensor = null;
@@ -116,14 +142,20 @@ namespace ChatBotAPI.Core
 
                         try
                         {
+                            // +++ Log Início do Passo +++
+                            Console.WriteLine($"      Step {step + 1}: Processing...");
+
                             outputLogits = model.forward(currentInput);
-                            if ((bool)(outputLogits == null) || outputLogits.numel() == 0)
+
+                            // Verifica nulidade de outputLogits
+                            if ((bool)(outputLogits == null)) // Usa a checagem correta
                             {
-                                Console.Error.WriteLine("Error: Model returned null or empty logits. Stopping generation.");
+                                Console.Error.WriteLine("Error: Model returned null logits. Stopping generation.");
+                                Console.WriteLine($"      Step {step + 1}: BREAKING loop due to null logits."); // +++ Log +++
                                 break;
                             }
 
-                            // Penalidade Repetição (simples: último token)
+                            // Penalidade Repetição Simples (último token)
                             if (lastPredictedTokenId != -1 && lastPredictedTokenId >= 0 && lastPredictedTokenId < outputLogits.shape[0])
                             {
                                 outputLogits[lastPredictedTokenId] = -float.MaxValue;
@@ -131,67 +163,68 @@ namespace ChatBotAPI.Core
 
                             // Aplicar Temperatura
                             scaledLogits = outputLogits / Math.Max(this.samplingTemperature, 1e-6f);
-
-                            // Clonar para aplicar Top-K/Top-P sem modificar os logits escalados originais
-                            // (Embora neste código simplificado, não estamos usando Top-K/P, manter o clone é boa prática)
                             finalLogitsForSampling = scaledLogits.clone();
 
-                            // *** (Opcional: Reintroduza a lógica Top-K / Top-P aqui se desejar usá-la) ***
+                            // (Opcional: Reintroduza lógica Top-K/Top-P aqui se necessário)
                             // Exemplo:
-                            // // Aplicar Top-K
-                            // bool useTopK = this.topK > 0;
-                            // if (useTopK) { finalLogitsForSampling = ApplyTopK(finalLogitsForSampling, this.topK); }
-                            // // Aplicar Top-P
-                            // bool useTopP = this.topP > 0.0f && this.topP < 1.0f;
-                            // if (useTopP) { finalLogitsForSampling = ApplyTopP(finalLogitsForSampling, this.topP); }
+                            // if (this.topK > 0) { finalLogitsForSampling = ApplyTopK(finalLogitsForSampling, this.topK); }
+                            // if (this.topP > 0.0f && this.topP < 1.0f) { finalLogitsForSampling = ApplyTopP(finalLogitsForSampling, this.topP); }
 
-                            // Calcular Probabilidades FINAIS (após filtros, se houver)
+                            // Calcular Probabilidades
                             probabilities = torch.softmax(finalLogitsForSampling, dim: 0);
 
-                            // ----- INÍCIO: LOG DA PROBABILIDADE DO EOS -----
-                            // *** CORREÇÃO: Usa cast explícito (bool) ***
-                            if (this.eosTokenIds.Any() && (bool)probabilities)
+                            // Verifica nulidade de probabilities
+                            if ((bool)(probabilities == null)) // Usa a checagem correta
                             {
-                                // Assumindo que eosTokenIds contém o ID correto (50256)
+                                Console.Error.WriteLine($"Error: Probabilities tensor became null at step {step+1}. Stopping generation.");
+                                Console.WriteLine($"      Step {step + 1}: BREAKING loop due to null probabilities."); // +++ Log +++
+                                break;
+                            }
+
+                            // ----- Log Probabilidade EOS -----
+                            if (this.eosTokenIds.Any())
+                            {
                                 int eosId = this.eosTokenIds.First();
                                 if (eosId >= 0 && eosId < probabilities.shape[0])
                                 {
                                     try
                                     {
-                                        // .item<float>() funciona direto em tensores de 1 elemento, independente do device
                                         float eosProbability = probabilities[eosId].item<float>();
-                                        // Log com alta precisão (8 casas decimais)
                                         Console.WriteLine($"      Step {step + 1}: Pr(EOS={eosId}) = {eosProbability:F8}");
                                     }
-                                    catch (Exception probEx)
-                                    {
-                                        Console.Error.WriteLine($"      Step {step + 1}: Error getting probability for EOS={eosId}: {probEx.Message}");
-                                    }
+                                    catch (Exception probEx) {
+                                        Console.Error.WriteLine($"      Step {step + 1}: Error getting probability for EOS={eosId}: {probEx.Message}"); // +++ Log +++
+                                     }
                                 }
-                                // else { // Log se ID EOS estiver fora dos limites - improvável }
                             }
-                            // ----- FIM: LOG DA PROBABILIDADE DO EOS -----
+                            // ----- Fim Log Probabilidade EOS -----
 
                             // Amostragem Multinomial
                             predictedIndexTensor = torch.multinomial(probabilities, num_samples: 1);
                             predictedTokenId = (int)predictedIndexTensor.item<long>();
-                            Console.WriteLine($"ChatBotService: Step {step+1}: Sampled Token ID: {predictedTokenId}"); // Log do token escolhido
+                            Console.WriteLine($"      Step {step+1}: Sampled Token ID: {predictedTokenId}");
 
                             // Verificar EOS para parar
                             if (this.eosTokenIds.Contains(predictedTokenId))
                             {
-                                Console.WriteLine($"ChatBotService: Step {step+1}: EOS token ({predictedTokenId}) sampled. Stopping generation.");
+                                Console.WriteLine($"      Step {step+1}: EOS token ({predictedTokenId}) sampled. BREAKING loop."); // +++ Log +++
                                 break; // Sai do loop FOR
                             }
 
-                            // Adicionar token gerado e preparar próximo input (como antes)
+                            // ----- LOGS DE DEPURAÇÃO CRUCIAIS -----
+                            Console.WriteLine($"      Step {step + 1}: PRE-ADD: Token to add: {predictedTokenId}. List current count: {generatedTokenIds.Count}"); // +++ Log +++
                             generatedTokenIds.Add(predictedTokenId);
-                            lastPredictedTokenId = predictedTokenId; // Atualiza para a próxima penalidade
+                            Console.WriteLine($"      Step {step + 1}: POST-ADD: Token {predictedTokenId} added. List new count: {generatedTokenIds.Count}"); // +++ Log +++
+                            // ----- FIM LOGS DE DEPURAÇÃO CRUCIAIS -----
 
+                            lastPredictedTokenId = predictedTokenId;
+
+                            // Preparar Próximo Input
                             var nextInputTokenTensor = tensor(new long[] { (long)predictedTokenId }, dtype: ScalarType.Int64).to(device);
-                            long[] previousInputData; using (var cpuTensor = currentInput.cpu()) { previousInputData = cpuTensor.data<long>().ToArray(); }
-                            var nextSequenceLongs = previousInputData.Concat(new long[] { (long)predictedTokenId }).ToArray();
+                            long[] previousInputData;
+                            using (var cpuTensor = currentInput.cpu()) { previousInputData = cpuTensor.data<long>().ToArray(); }
                             currentInput.Dispose(); // Dispose tensor antigo ANTES de verificar tamanho
+                            var nextSequenceLongs = previousInputData.Concat(new long[] { (long)predictedTokenId }).ToArray();
 
                             // Truncar se necessário
                             if (nextSequenceLongs.Length > tokenizer.GetMaxSequenceLength())
@@ -199,15 +232,17 @@ namespace ChatBotAPI.Core
                                 int startIndex = nextSequenceLongs.Length - tokenizer.GetMaxSequenceLength();
                                 nextSequenceLongs = nextSequenceLongs.Skip(startIndex).ToArray();
                             }
-
                             // Criar novo tensor de input
                             currentInput = tensor(nextSequenceLongs, dtype: ScalarType.Int64).to(device);
                             nextInputTokenTensor.Dispose(); // Dispose do tensor temporário
-
                         }
                         catch (Exception stepEx)
                         {
-                            Console.Error.WriteLine($"Error in generation step {step + 1}: {stepEx}");
+                            // Log DETALHADO do erro
+                            Console.Error.WriteLine($"***** CRITICAL ERROR in generation step {step + 1} *****"); // +++ Log +++
+                            Console.Error.WriteLine(stepEx.ToString()); // +++ Log +++ (imprime stack trace completo)
+                            Console.Error.WriteLine($"***** END CRITICAL ERROR *****"); // +++ Log +++
+                            Console.WriteLine($"      Step {step + 1}: BREAKING loop due to exception."); // +++ Log +++
                             break; // Sai do loop em caso de erro no passo
                         }
                         finally
@@ -215,17 +250,18 @@ namespace ChatBotAPI.Core
                             // Dispose seguro dos tensores criados dentro do try do passo
                             outputLogits?.Dispose();
                             scaledLogits?.Dispose();
-                            finalLogitsForSampling?.Dispose(); // Dispose o clone também
+                            finalLogitsForSampling?.Dispose();
                             probabilities?.Dispose();
                             predictedIndexTensor?.Dispose();
                         }
                     } // --- Fim Loop FOR ---
                 } // --- Fim using no_grad ---
 
+                // Log final para verificar a contagem da lista
                 Console.WriteLine($"ChatBotService: Generation loop finished. Generated {generatedTokenIds.Count} tokens.");
 
-                // --- Detokenização DIRETA (Sem Refinamento) --- (Como na sua versão)
-                if (generatedTokenIds.Any())
+                // --- Detokenização DIRETA (Sem Refinamento) ---
+                if (generatedTokenIds.Any()) // Verifica se a lista tem itens
                 {
                     try
                     {
@@ -236,9 +272,17 @@ namespace ChatBotAPI.Core
                             finalResponseMessage = "[No meaningful response generated]";
                         }
                     }
-                    catch (Exception dtEx) { /*...*/ finalResponseMessage = "[Error processing response]"; }
+                    catch (Exception dtEx)
+                    {
+                        Console.Error.WriteLine($"Error during Detokenization: {dtEx.ToString()}"); // Log erro detokenize
+                        finalResponseMessage = "[Error processing response]";
+                    }
                 }
-                else { /*...*/ finalResponseMessage = "[No response generated]"; }
+                else
+                {
+                    Console.WriteLine("ChatBotService: No tokens were generated or added to the list."); // Log específico
+                    finalResponseMessage = "[No response generated]";
+                }
                 // --- Fim Detokenização ---
 
                 // 4. Envia a resposta final
@@ -269,6 +313,5 @@ namespace ChatBotAPI.Core
             var segment = new ArraySegment<byte>(messageBuffer);
             await webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
         }
-
     } // --- FIM ChatBotService ---
 } // --- FIM Namespace ---

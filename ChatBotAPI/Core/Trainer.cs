@@ -1,14 +1,14 @@
-﻿// Trainer.cs - VERSÃO COM ESTRUTURA CORRETA (Save no final)
+﻿// Trainer.cs
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Diagnostics; // Para Stopwatch
-using System.IO; // Para Path, Directory, File
+using System.Diagnostics;
+using System.IO;
 using TorchSharp;
 using static TorchSharp.torch;
-using static TorchSharp.torch.optim; // Para Adam
-using static TorchSharp.torch.nn;    // Para CrossEntropyLoss, Module
+using static TorchSharp.torch.optim;
+using static TorchSharp.torch.nn;
 
 namespace ChatBotAPI.Core
 {
@@ -17,203 +17,194 @@ namespace ChatBotAPI.Core
         private readonly TorchSharpModel model;
         private readonly Tokenizer tokenizer;
         private readonly Optimizer optimizer;
-        private readonly Module<Tensor, Tensor, Tensor> lossFunction; // Função de perda
-        private readonly Device device; // Dispositivo (CPU ou CUDA)
-        private readonly string modelSavePath; // Caminho para salvar
+        private readonly Module<Tensor, Tensor, Tensor> lossFunction;
+        private readonly Device device;
+        private readonly string modelSavePath;
+        // Adiciona um helper para reportar progresso via IProgress<T> se necessário
+        private Action<string> Report = Console.WriteLine; // Default para Console
 
-        // Construtor (Recebe save path, mas não TrainingState)
+        // Construtor MODIFICADO
         public Trainer(TorchSharpModel model, Tokenizer tokenizer, double learningRate, string modelSavePath)
         {
             this.model = model ?? throw new ArgumentNullException(nameof(model));
             this.tokenizer = tokenizer ?? throw new ArgumentNullException(nameof(tokenizer));
             this.device = torch.cuda.is_available() ? torch.CUDA : torch.CPU;
-            this.modelSavePath = Path.GetFullPath(modelSavePath); // Garante caminho absoluto
+            this.modelSavePath = Path.GetFullPath(modelSavePath);
             Console.WriteLine($"Trainer using device: {this.device.type}");
             Console.WriteLine($"Trainer configured to save model to: {this.modelSavePath}");
             this.model.to(this.device);
-            this.optimizer = Adam(this.model.parameters(), lr: learningRate);
-            int padTokenId = this.tokenizer.PadTokenId;
-            this.lossFunction = CrossEntropyLoss(ignore_index: padTokenId).to(this.device);
-            Console.WriteLine($"Trainer initialized loss function. Device: {this.device.type}. ignore_index (PadTokenId): {padTokenId}");
-             if (tokenizer.ActualVocabSize <= 2) {
-                 Console.Error.WriteLine("CRITICAL WARNING: Trainer detected Tokenizer ActualVocabSize <= 2...");
-             }
+            // Adicionar weight decay se estiver usando para regularização
+            this.optimizer = Adam(this.model.parameters(), lr: learningRate /*, weight_decay: 1e-5 */);
+
+            // ***** MUDANÇA 1: Remover ignore_index da Loss Function *****
+            this.lossFunction = CrossEntropyLoss().to(this.device);
+            Console.WriteLine($"Trainer initialized loss function (CrossEntropyLoss). Device: {this.device.type}. NO ignore_index set.");
+            // ***** FIM MUDANÇA 1 *****
+
+            if (tokenizer.ActualVocabSize <= 2) { /* ... alerta ... */ }
         }
 
-        // --- MÉTODO Train (Estrutura Corrigida) ---
-        public void Train(List<string> trainingData, int epochs)
+        // Método Train MODIFICADO para aceitar IProgress e usar Tokenize sem padding
+        public void Train(List<string> trainingData, int epochs, IProgress<string>? progressReporter = null)
         {
-            if (trainingData == null || !trainingData.Any()) { Console.WriteLine("Training data is empty. Skipping training."); return; }
-            if (tokenizer.ActualVocabSize <= 0) { Console.Error.WriteLine("Cannot train: Tokenizer vocabulary size is invalid."); return; } // Verificação mais robusta
+             // Atualiza o reporter se um foi fornecido
+            if (progressReporter != null) {
+                Report = message => { Console.WriteLine(message); progressReporter.Report(message); };
+            } else {
+                 Report = Console.WriteLine; // Garante que Report não seja nulo
+            }
 
-            int padTokenId = tokenizer.PadTokenId;
+
+            if (trainingData == null || !trainingData.Any()) { Report("Training data is empty. Skipping training."); return; }
+            if (tokenizer.ActualVocabSize <= 0) { Report("ERROR: Cannot train: Tokenizer vocabulary size is invalid."); return; }
+
+            // Não precisamos mais de padTokenId aqui para skip
             int vocabSize = tokenizer.ActualVocabSize;
-            int maxSeqLen = tokenizer.GetMaxSequenceLength(); // Usa o getter
+            // maxSeqLen ainda pode ser útil para logs ou verificações, mas não para padding aqui
+            int maxSeqLen = tokenizer.GetMaxSequenceLength();
 
-            Console.WriteLine($"Starting TorchSharp training on {device.type}. Epochs: {epochs}. Sentences: {trainingData.Count}. PadTokenId: {padTokenId}. VocabSize: {vocabSize}. MaxSeqLen: {maxSeqLen}.");
+            Report($"Starting TorchSharp training on {device.type}. Epochs: {epochs}. Sentences: {trainingData.Count}. VocabSize: {vocabSize}. MaxSeqLen: {maxSeqLen}. EOS Token WILL be trained.");
             Stopwatch epochStopwatch = new Stopwatch();
-            Stopwatch totalStopwatch = Stopwatch.StartNew(); // Tempo total
+            Stopwatch totalStopwatch = Stopwatch.StartNew();
 
             // --- Loop Principal de Épocas ---
             for (int epoch = 0; epoch < epochs; epoch++)
             {
-                model.train(); // Modo treino no início da época
+                model.train();
                 epochStopwatch.Restart();
-                Console.WriteLine($"--- Epoch {epoch + 1}/{epochs} ---");
+                Report($"--- Epoch {epoch + 1}/{epochs} ---");
 
                 float totalLoss = 0f;
                 long totalStepsInEpoch = 0;
-                long skippedSteps = 0;
+                long skippedSteps = 0; // Continuará contando skips de sequências curtas
                 long sentenceCount = 0;
+                long reportIntervalSteps = Math.Max(1, trainingData.Count / 5); // Log mais frequente com menos dados
 
-                // *** Variável para controlar o log de progresso ***
-                long reportIntervalSteps = 100; // Log a cada 100 passos de treino
+                // Calcula o total estimado de passos UMA VEZ por época (mais eficiente)
+                long estimatedTotalStepsInEpoch = 0;
+                 try {
+                      var allowedSpecial = new HashSet<string> { "<|endoftext|>" };
+                      estimatedTotalStepsInEpoch = trainingData.Sum(s => Math.Max(0, tokenizer.Tokenize(s, allowedSpecial, applyPaddingTruncation: false).Length - 1));
+                 } catch (Exception ex) {
+                      Report($"Warning: Could not estimate total steps. Progress ETA might be inaccurate. Error: {ex.Message}");
+                      estimatedTotalStepsInEpoch = -1; // Indica que a estimativa falhou
+                 }
+
 
                 try
                 {
                     // --- Loop pelas Sentenças ---
                     foreach (string sentence in trainingData)
                     {
-                         sentenceCount++;
-                         int[] tokens;
-                         try {
-                              tokens = tokenizer.Tokenize(sentence); // Chama o Tokenize da biblioteca agora
-                         } catch (Exception tex) {
-                             Console.Error.WriteLine($"ERROR tokenizing sentence {sentenceCount} (Epoch {epoch+1}): {tex.Message}. Skipping sentence.");
-                             continue; // Pula esta sentença se a tokenização falhar
-                         }
+                        sentenceCount++;
+                        int[] tokens;
+                        try {
+                            var allowedSpecialTokens = new HashSet<string> { "<|endoftext|>" };
+                            // ***** MUDANÇA 2: Tokenizar SEM padding/truncamento *****
+                            tokens = tokenizer.Tokenize(sentence, allowedSpecialTokens, applyPaddingTruncation: false);
+                        } catch (Exception tex) {
+                            Report($"ERROR tokenizing sentence {sentenceCount} (Epoch {epoch+1}): {tex.Message}. Skipping sentence.");
+                            continue;
+                        }
+
+                        // Pula sequências muito curtas (sem tokens suficientes para formar par input/target)
+                        if (tokens.Length <= 1) {
+                            skippedSteps++; // Incrementa skip para sequência inteira
+                            continue;
+                        }
+
+                        // --- Loop Interno pelos Passos (Tokens Alvo) ---
+                        // Itera sobre todos os tokens REAIS da sequência, incluindo o EOS final como alvo
+                        for (int i = 1; i < tokens.Length; i++)
+                        {
+                            long targetTokenId = tokens[i]; // Alvo é o token atual (pode ser EOS)
+
+                            // ***** MUDANÇA 3: REMOVER o skip explícito do target *****
+                            // if (targetTokenId == padTokenId) {
+                            //    skippedSteps++;
+                            //    continue;
+                            // }
+                            // ***** FIM MUDANÇA 3 *****
 
 
-                         if (tokens.Length <= 1) {
-                             skippedSteps += tokens.Length; // Conta como pulados
-                             continue;
-                         }
+                            int[] inputSequenceTokens = tokens.Take(i).ToArray();
+                            // Não deve mais acontecer com if (tokens.Length <= 1) acima, mas mantém por segurança
+                            if (!inputSequenceTokens.Any()) { skippedSteps++; continue; }
 
-                         // --- Loop Interno pelos Passos (Tokens Alvo) ---
-                         for (int i = 1; i < tokens.Length; i++)
-                         {
-                             long targetTokenId = tokens[i]; // O alvo é o token atual
+                            Tensor? inputTensor = null, targetTensor = null, outputLogits = null, loss = null;
 
-                             // Pula se o *alvo* for padding
-                             if (targetTokenId == padTokenId) {
-                                 skippedSteps++;
-                                 continue;
-                             }
+                            try // <- TRY INTERNO DO PASSO
+                            {
+                                inputTensor = tensor(inputSequenceTokens.Select(t => (long)t).ToArray(), dtype: ScalarType.Int64).to(device);
+                                targetTensor = tensor(new long[] { targetTokenId }, dtype: ScalarType.Int64).to(device);
 
-                             // A *entrada* são os tokens anteriores
-                             // Não precisa mais converter para long aqui se Tokenize retorna int[]
-                             int[] inputSequenceTokens = tokens.Take(i).ToArray();
+                                optimizer.zero_grad();
+                                outputLogits = model.forward(inputTensor);
 
-                             // Pula se a sequência de entrada estiver vazia (não deve acontecer com i=1)
-                             if (!inputSequenceTokens.Any()) { skippedSteps++; continue; }
+                                // Usa verificação de referência nula
+                                if ((bool)(outputLogits == null)) { skippedSteps++; Report("Warning: Model returned null output."); continue; }
 
-                             Tensor? inputTensor = null;
-                             Tensor? targetTensor = null;
-                             Tensor? outputLogits = null;
-                             Tensor? loss = null;
+                                // Validação de Shape (importante)
+                                if(outputLogits.dim() != 1 || outputLogits.shape[0] != vocabSize) {
+                                    Report($"ERROR: Unexpected output shape {outputLogits.shape}. Expected [{vocabSize}]. Skipping step.");
+                                    skippedSteps++; continue;
+                                }
 
-                             try // <- TRY INTERNO DO PASSO
-                             {
-                                 // Converte para LongTensor ANTES de enviar para o device
-                                 inputTensor = tensor(inputSequenceTokens.Select(t => (long)t).ToArray(), dtype: ScalarType.Int64).to(device);
-                                 // Target é um único valor, precisa ser um tensor 1D para CrossEntropyLoss
-                                 targetTensor = tensor(new long[] { targetTokenId }, dtype: ScalarType.Int64).to(device);
+                                using var reshapedLogits = outputLogits.unsqueeze(0);
+                                // Loss function sem ignore_index
+                                loss = lossFunction.forward(reshapedLogits, targetTensor);
+                                float currentLoss = loss.item<float>();
 
-                                 optimizer.zero_grad();
-                                 outputLogits = model.forward(inputTensor);
+                                if (float.IsNaN(currentLoss) || float.IsInfinity(currentLoss)) { Report($"Warning: Invalid loss ({currentLoss}). Skipping step."); skippedSteps++; continue; }
 
-                                 if ((bool)(outputLogits == null)) { skippedSteps++; continue; } // Verifica se a saída é válida
+                                loss.backward();
+                                optimizer.step();
 
-                                 // Verifica shape da saída (esperado: [vocabSize] ou [1, vocabSize])
-                                 // CrossEntropyLoss espera [N, C] ou [C] para target [N] ou []
-                                 // Nossa saída é [vocabSize], nosso target é [1]. Precisamos dar unsqueeze na saída.
-                                 if(outputLogits.dim() != 1 || outputLogits.shape[0] != vocabSize) {
-                                      Console.Error.WriteLine($"ERROR: Unexpected output shape {outputLogits.shape}. Expected [{vocabSize}]. Skipping step.");
-                                      skippedSteps++;
-                                      continue;
-                                 }
+                                totalLoss += currentLoss;
+                                totalStepsInEpoch++; // Passo bem-sucedido
 
-                                 // Ajusta shape da saída para [1, vocabSize] para CrossEntropyLoss
-                                 using var reshapedLogits = outputLogits.unsqueeze(0);
-
-                                 // Calcular Loss, Backward, Step
-                                 loss = lossFunction.forward(reshapedLogits, targetTensor); // Passa [1, C] e [1]
-                                 float currentLoss = loss.item<float>();
-
-                                 // Verifica se a perda é válida (NaN ou Infinito)
-                                 if (float.IsNaN(currentLoss) || float.IsInfinity(currentLoss))
-                                 {
-                                     Console.Error.WriteLine($"Warning: Invalid loss detected ({currentLoss}) at step {totalStepsInEpoch + 1}. Skipping backward/step.");
-                                     skippedSteps++;
-                                     continue; // Pula backward e step
-                                 }
-
-                                 loss.backward();
-                                 optimizer.step();
-
-                                 // --- Atualiza contadores e loga progresso ---
-                                 totalLoss += currentLoss;
-                                 totalStepsInEpoch++; // Incrementa após um passo BEM SUCEDIDO
-
-                                 // *** LOG DE PROGRESSO PERIÓDICO ***
-                                 if (totalStepsInEpoch > 0 && totalStepsInEpoch % reportIntervalSteps == 0)
-                                 {
-                                     float avgLossSoFar = totalLoss / totalStepsInEpoch;
-                                     // Calcula tempo estimado restante (simples)
-                                     double elapsedEpochMs = epochStopwatch.Elapsed.TotalMilliseconds;
-                                     double estimatedTotalEpochMs = (elapsedEpochMs / totalStepsInEpoch) * (trainingData.Sum(s=> Math.Max(0, s.Length-1))); // Estimativa grosseira baseada no total de tokens possíveis
-                                     double estimatedRemainingMs = Math.Max(0, estimatedTotalEpochMs - elapsedEpochMs);
-                                     TimeSpan remainingTs = TimeSpan.FromMilliseconds(estimatedRemainingMs);
-
-                                     Console.WriteLine($"  Epoch {epoch + 1} Step {totalStepsInEpoch} [{DateTime.Now:HH:mm:ss}] - Avg Loss: {avgLossSoFar:F4} - Est. Epoch Rem: {remainingTs:hh\\:mm\\:ss}");
-                                 }
-                                 // *** FIM LOG DE PROGRESSO ***
-
-                             }
-                             catch (Exception stepEx) {
-                                 Console.Error.WriteLine($"ERROR in training step (Sent# {sentenceCount}, Token# {i}, Epoch {epoch+1}): {stepEx.Message}");
-                                 skippedSteps++;
-                             }
-                             finally {
-                                // Dispose seguro dos tensores do passo
-                                inputTensor?.Dispose();
-                                targetTensor?.Dispose();
-                                outputLogits?.Dispose();
-                                loss?.Dispose();
-                             }
-                         } // Fim loop interno (passos/tokens)
+                                // *** LOG DE PROGRESSO PERIÓDICO ***
+                                if (totalStepsInEpoch > 0 && totalStepsInEpoch % reportIntervalSteps == 0 && estimatedTotalStepsInEpoch > 0)
+                                {
+                                    float avgLossSoFar = totalLoss / totalStepsInEpoch;
+                                    double elapsedEpochMs = epochStopwatch.Elapsed.TotalMilliseconds;
+                                    // Usa a estimativa de passos calculada no início da época
+                                    double estimatedTotalEpochMs = (elapsedEpochMs / totalStepsInEpoch) * estimatedTotalStepsInEpoch;
+                                    double estimatedRemainingMs = Math.Max(0, estimatedTotalEpochMs - elapsedEpochMs);
+                                    TimeSpan remainingTs = TimeSpan.FromMilliseconds(estimatedRemainingMs);
+                                    Report($"  Epoch {epoch + 1} Step {totalStepsInEpoch}/{estimatedTotalStepsInEpoch} [{DateTime.Now:HH:mm:ss}] - Avg Loss: {avgLossSoFar:F4} - Est. Epoch Rem: {remainingTs:hh\\:mm\\:ss}");
+                                }
+                            }
+                            catch (Exception stepEx) { Report($"ERROR in training step (Sent# {sentenceCount}, Token# {i}, Epoch {epoch+1}): {stepEx.Message}"); skippedSteps++; }
+                            finally { /* ... Dispose ... */ }
+                        } // Fim loop interno (passos/tokens)
                     } // Fim loop externo (sentenças)
                 }
-                catch (Exception exOuterLoop) { Console.Error.WriteLine($"ERROR in outer sentence loop (Epoch {epoch + 1}): {exOuterLoop.Message}"); }
+                catch (Exception exOuterLoop) { Report($"ERROR in outer sentence loop (Epoch {epoch + 1}): {exOuterLoop.Message}"); }
 
                 // --- Fim da Época ---
-                model.eval(); // Modo avaliação no fim da época
+                model.eval();
                 epochStopwatch.Stop();
                 float avgLoss = totalStepsInEpoch > 0 ? totalLoss / totalStepsInEpoch : 0f;
-                Console.WriteLine($"--- Epoch {epoch + 1} completed in {epochStopwatch.ElapsedMilliseconds} ms. Avg Loss: {avgLoss:F6}, Steps: {totalStepsInEpoch}, Skipped: {skippedSteps} ---");
+                Report($"--- Epoch {epoch + 1} completed in {epochStopwatch.ElapsedMilliseconds} ms. Avg Loss: {avgLoss:F6}, Steps: {totalStepsInEpoch}, Skipped: {skippedSteps} ---");
 
             } // --- Fim do Loop Principal de Épocas ---
 
             totalStopwatch.Stop();
-            model.eval(); // Garante modo de avaliação final
-            Console.WriteLine($"Training finished in {totalStopwatch.Elapsed}.");
+            model.eval();
+            Report($"Training finished in {totalStopwatch.Elapsed}.");
 
             // --- Salvar Modelo ---
-            Console.WriteLine($"Attempting to save final model state to: {this.modelSavePath}");
-            try
+            Report($"Attempting to save final model state to: {this.modelSavePath}");
+             try
             {
-                 // ... (código de salvar como antes) ...
-                  string? directory = Path.GetDirectoryName(this.modelSavePath);
-                  if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                  {
-                      Directory.CreateDirectory(directory);
-                      Console.WriteLine($"Created directory for model saving: {directory}");
-                  }
-                  this.model.save(this.modelSavePath);
-                  Console.WriteLine($"Trained model state saved successfully to: {this.modelSavePath}");
-                  if(!File.Exists(this.modelSavePath)) { Console.Error.WriteLine("CRITICAL WARNING: Model file DOES NOT EXIST after save call!"); }
+                 string? directory = Path.GetDirectoryName(this.modelSavePath);
+                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory)) { Directory.CreateDirectory(directory); Report($"Created directory: {directory}"); }
+                 this.model.save(this.modelSavePath);
+                 Report($"Trained model state saved successfully to: {this.modelSavePath}");
+                 if (!File.Exists(this.modelSavePath)) { Report("CRITICAL WARNING: Model file DOES NOT EXIST after save call!"); }
             }
-            catch (Exception ex) { Console.Error.WriteLine($"ERROR saving final model state: {ex.ToString()}"); }
+            catch (Exception ex) { Report($"ERROR saving final model state: {ex.ToString()}"); }
         }
     } // --- Fim da Classe Trainer ---
 } // --- Fim do Namespace ---

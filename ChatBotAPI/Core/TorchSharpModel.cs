@@ -1,9 +1,9 @@
-﻿// TorchSharpModel.cs - VERSÃO LSTM ASSUMINDO Item2 É APENAS h_n
+﻿// TorchSharpModel.cs - VERSÃO LSTM COM DROPOUT ADICIONADO
 
 using System;
 using System.Linq;
 using TorchSharp;
-using TorchSharp.Modules;
+using TorchSharp.Modules; // Necessário para Dropout
 using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
 
@@ -13,34 +13,54 @@ namespace ChatBotAPI.Core
     {
         private readonly Embedding embedding;
         private readonly LSTM lstm;
+        private readonly Dropout lstm_dropout; // *** NOVO: Camada Dropout ***
         private readonly Linear linearOutput;
         private readonly int hiddenSize;
         private readonly int paddingIdx;
         private readonly int numLSTMLayers;
 
-        // Construtor (Correto)
-        public TorchSharpModel(int vocabSize, int embeddingSize, int paddingIdx = 0, int hiddenSize = 128, int numLSTMLayers = 1)
+        // Construtor MODIFICADO para incluir taxa de dropout
+        public TorchSharpModel(
+            int vocabSize,
+            int embeddingSize,
+            int paddingIdx = 0,
+            int hiddenSize = 128,
+            int numLSTMLayers = 1,
+            double dropoutRate = 0.2) // *** NOVO: Parâmetro Dropout Rate (com default) ***
             : base(nameof(TorchSharpModel))
         {
-            // ... (Validações, Definição Camadas, RegisterComponents, Log) ...
-             this.hiddenSize = hiddenSize;
+            // Validações básicas
+            if (vocabSize <= 0) throw new ArgumentOutOfRangeException(nameof(vocabSize));
+            if (embeddingSize <= 0) throw new ArgumentOutOfRangeException(nameof(embeddingSize));
+            if (hiddenSize <= 0) throw new ArgumentOutOfRangeException(nameof(hiddenSize));
+            if (numLSTMLayers <= 0) throw new ArgumentOutOfRangeException(nameof(numLSTMLayers));
+            if (dropoutRate < 0.0 || dropoutRate >= 1.0) throw new ArgumentOutOfRangeException(nameof(dropoutRate)); // Dropout é probabilidade [0, 1)
+
+            this.hiddenSize = hiddenSize;
             this.paddingIdx = paddingIdx;
             this.numLSTMLayers = numLSTMLayers;
+
+            // Definição das Camadas
             this.embedding = Embedding(vocabSize, embeddingSize, padding_idx: this.paddingIdx);
-            this.lstm = LSTM(inputSize: embeddingSize, hiddenSize: this.hiddenSize, numLayers: this.numLSTMLayers, batchFirst: false);
+            this.lstm = LSTM(inputSize: embeddingSize, hiddenSize: this.hiddenSize, numLayers: this.numLSTMLayers, batchFirst: false); // batchFirst=false espera (SeqLen, Batch, Features)
+            this.lstm_dropout = Dropout(p: dropoutRate); // *** NOVO: Inicializa Dropout ***
             this.linearOutput = Linear(inputSize: this.hiddenSize, outputSize: vocabSize);
-            RegisterComponents();
-            Console.WriteLine($"TorchSharpModel (LSTM) Initialized: VocabSize={vocabSize}, EmbeddingSize={embeddingSize}, HiddenSize={this.hiddenSize}, LSTMLayers={this.numLSTMLayers}, PaddingIdx={this.paddingIdx}");
+
+            RegisterComponents(); // Registra todas as camadas (incluindo dropout) para gerenciamento
+
+            Console.WriteLine($"TorchSharpModel (LSTM) Initialized: VocabSize={vocabSize}, EmbeddingSize={embeddingSize}, HiddenSize={this.hiddenSize}, LSTMLayers={this.numLSTMLayers}, PaddingIdx={this.paddingIdx}, DropoutRate={dropoutRate}"); // Log atualizado
         }
 
-        // --- Método forward com LSTM ---
+        // --- Método forward com LSTM e Dropout ---
         public override Tensor forward(Tensor input)
         {
             Tensor? embedded = null;
             Tensor? lstmInput = null;
             Tensor? lstmOutputSequence = null;
-            Tensor? h_n = null; // Apenas estado oculto final
+            Tensor? h_n = null; // Apenas estado oculto final (da tentativa anterior)
+            Tensor? stateTupleObj = null; // Para guardar o objeto de estado completo
             Tensor? lastTimeStepHiddenState = null;
+            Tensor? dropoutOutput = null; // *** NOVO: Saída do Dropout ***
             Tensor? logits = null;
 
             try
@@ -49,60 +69,73 @@ namespace ChatBotAPI.Core
                 if (input.dtype != ScalarType.Int64) { input = input.to(ScalarType.Int64); }
 
                 // 2. Embedding
-                embedded = embedding.forward(input);
+                embedded = embedding.forward(input); // Shape: (SeqLen, EmbeddingSize) para batch_size=1
 
-                // 3. Ajustar Shape para LSTM
+                // 3. Ajustar Shape para LSTM (SeqLen, Batch=1, Features)
+                // O LSTM espera (SeqLen, BatchSize, InputSize) por padrão (batchFirst=false)
+                // Se o input já tem shape (SeqLen), unsqueeze(1) cria (SeqLen, 1, EmbeddingSize)
                 lstmInput = embedded.unsqueeze(1);
 
                 // 4. Passar pela LSTM
-                var lstmResult = lstm.forward(lstmInput); // Retorna (Tensor outputSeq, object state)
-
-                // 5. Extrai output e TENTA pegar h_n de Item2
+                // Retorna (outputSeq[SeqLen, Batch, HiddenSize], stateTuple[h_n, c_n])
+                // Onde h_n e c_n têm shape (NumLayers, Batch, HiddenSize)
+                var lstmResult = lstm.forward(lstmInput);
                 lstmOutputSequence = lstmResult.Item1;
-                h_n = lstmResult.Item2 as Tensor; // Tenta cast direto para Tensor
+                stateTupleObj = lstmResult.Item2 as Tensor; // Tenta pegar o estado (pode ser tupla) - MANTIDO POR ENQUANTO, MAS PROVAVELMENTE NÃO É USADO DIRETAMENTE
 
-                // Verifica se a sequência de saída ou o estado oculto são nulos
-                if ((bool)(lstmOutputSequence == null)) {
+                // Verifica se a sequência de saída é válida
+                if ((bool)(lstmOutputSequence == null)) // Usar comparação direta de referência
+                {
                      Console.Error.WriteLine("CRITICAL ERROR: LSTM output sequence (Item1) is null!");
                      throw new NullReferenceException("LSTM output sequence is null.");
                 }
-                if ((bool)(h_n == null)) {
-                     // Se o cast direto 'as Tensor' falhou, Item2 NÃO é um Tensor simples.
-                     // Não conseguimos determinar o tipo exato de forma segura sem Reflection ou mais informações.
-                     // Lançamos um erro claro.
-                     Console.Error.WriteLine($"CRITICAL ERROR: LSTM final state (Item2) is not a Tensor or could not be cast. Type is {lstmResult.Item2?.GetType().FullName}. Cannot reliably get h_n.");
-                     throw new InvalidCastException($"Cannot cast LSTM state (Item2) to Tensor. Actual type: {lstmResult.Item2?.GetType().FullName}");
-                }
-                // Se chegou aqui, temos lstmOutputSequence e h_n (ambos não nulos)
 
-                // Console.WriteLine($"DEBUG LSTM Forward: Output sequence shape {lstmOutputSequence.shape}");
-                // Console.WriteLine($"DEBUG LSTM Forward: Final Hidden (h_n) Shape {h_n.shape}");
+                // 5. Obter a Saída Relevante (do último passo de tempo da sequência)
+                // outputSequence tem shape (SeqLen, Batch=1, HiddenSize)
+                // select(0, -1) pega o último item na dimensão 0 (tempo) -> Shape (Batch=1, HiddenSize)
+                // squeeze(0) remove a dimensão do batch -> Shape (HiddenSize)
+                lastTimeStepHiddenState = lstmOutputSequence.select(0, -1).squeeze(0);
 
-                // 6. Obter a Saída Relevante
-                 lastTimeStepHiddenState = lstmOutputSequence.select(0, -1).squeeze(0);
-                // Console.WriteLine($"DEBUG Forward: Last Time Step Hidden State Shape {lastTimeStepHiddenState.shape}");
+                // *** NOVO: 6. Aplicar Dropout ***
+                // Dropout é aplicado apenas durante model.train()
+                dropoutOutput = lstm_dropout.forward(lastTimeStepHiddenState);
 
-                // 7. Passar pela Camada Linear Final
-                logits = linearOutput.forward(lastTimeStepHiddenState);
-                 // Console.WriteLine($"DEBUG Forward: Final Logits Shape {logits.shape}");
+                 // Verifica se a saída do dropout é válida
+                 if ((bool)(dropoutOutput == null)) {
+                      Console.Error.WriteLine("CRITICAL ERROR: Dropout output is null!");
+                      throw new NullReferenceException("Dropout output is null.");
+                 }
 
-                if ((bool)(logits == null)) {
+                // 7. Passar pela Camada Linear Final (usando a saída do dropout)
+                logits = linearOutput.forward(dropoutOutput);
+
+                // Verifica se logits são válidos
+                if ((bool)(logits == null)) // Usa comparação direta
+                {
                     throw new InvalidOperationException("Logits became null after linear layer.");
                 }
 
                 // 8. RETORNAR OS LOGITS
-                return logits;
+                return logits; // Shape esperado: (VocabSize)
 
             }
-            catch (Exception ex) { /* ... Bloco catch ... */ throw; }
+            catch (Exception ex)
+            {
+                 Console.Error.WriteLine($"Error in TorchSharpModel.forward: {ex.ToString()}"); // Log detalhado
+                 // Considerar relançar ou retornar um tensor inválido/nulo controlado
+                 throw; // Relança a exceção por padrão
+            }
             finally
             {
-                // Dispose
+                // Dispose dos tensores intermediários
                 embedded?.Dispose();
                 lstmInput?.Dispose();
                 lstmOutputSequence?.Dispose();
-                h_n?.Dispose(); // Descarta h_n
+                h_n?.Dispose(); // Mesmo que o cast possa falhar, tenta descartar se não for nulo
+                // Descarta o stateTupleObj se necessário (depende do tipo real)
+                (stateTupleObj as IDisposable)?.Dispose();
                 lastTimeStepHiddenState?.Dispose();
+                dropoutOutput?.Dispose(); // *** NOVO: Dispose da saída do Dropout ***
             }
         } // Fim forward
     }
