@@ -95,16 +95,20 @@ namespace ChatBotAPI.Core
                 // 1. Tokenizar Input e 2. Preparar Tensor Inicial (como antes)
                 int[] inputTokens = tokenizer.Tokenize(message);
                 int[] initialSequence = inputTokens.Where(t => t != this.padTokenId).ToArray();
-                if (initialSequence.Length == 0) { /*...*/ await SendMessage(webSocket, "[Error: Invalid input]"); return; }
+                if (initialSequence.Length == 0) { await SendMessage(webSocket, "[Error: Invalid input]"); return; } // Simplificado
                 long[] initialLongs = initialSequence.Select(id => (long)id).ToArray();
                 initialInputTensor = tensor(initialLongs, dtype: ScalarType.Int64).to(device);
                 currentInput = initialInputTensor.clone().to(device);
 
-                // 3. Loop de Geração (com sampling Temp/K/P)
+                // 3. Loop de Geração
                 model.eval();
                 using (var noGrad = torch.no_grad())
                 {
-                    for (int step = 0; step < this.maxGeneratedTokens; step++)
+                    // Use um limite maior para o teste de probabilidade EOS
+                    int generationLimit = 100; // Aumente se necessário
+                    Console.WriteLine($"ChatBotService: Starting generation loop (limit: {generationLimit} steps).");
+
+                    for (int step = 0; step < generationLimit; step++) // Use o limite maior aqui
                     {
                         Tensor? outputLogits = null, scaledLogits = null, finalLogitsForSampling = null;
                         Tensor? probabilities = null, predictedIndexTensor = null;
@@ -113,85 +117,145 @@ namespace ChatBotAPI.Core
                         try
                         {
                             outputLogits = model.forward(currentInput);
-                            if ((bool)(outputLogits == null) || outputLogits.numel() == 0) break;
-                            if (lastPredictedTokenId != -1 && lastPredictedTokenId >= 0 && lastPredictedTokenId < outputLogits.shape[0]) { outputLogits[lastPredictedTokenId] = -float.MaxValue; } // Penalidade Repetição
-                            scaledLogits = outputLogits / Math.Max(this.samplingTemperature, 1e-6f);
-                            finalLogitsForSampling = scaledLogits.clone();
-
-                            // Aplicar Top-K
-                            bool useTopK = this.topK > 0;
-                            if (useTopK) { /* ... lógica Top-K como antes ... */ }
-                            // Aplicar Top-P
-                            bool useTopP = this.topP > 0.0f && this.topP < 1.0f;
-                            if (useTopP) { /* ... lógica Top-P como antes ... */ }
-
-                            // Softmax e Multinomial
-                            probabilities = torch.softmax(finalLogitsForSampling, dim: 0);
-                            predictedIndexTensor = torch.multinomial(probabilities, num_samples: 1);
-                            predictedTokenId = (int)predictedIndexTensor.item<long>();
-                             Console.WriteLine($"ChatBotService: Step {step+1}: Sampled Token ID: {predictedTokenId}");
-
-
-                            // Verificar APENAS EOS (50256)
-                            if (this.eosTokenIds.Contains(predictedTokenId))
+                            if ((bool)(outputLogits == null) || outputLogits.numel() == 0)
                             {
-                                Console.WriteLine($"ChatBotService: Step {step+1}: EOS token ({predictedTokenId}) sampled. Stopping generation.");
+                                Console.Error.WriteLine("Error: Model returned null or empty logits. Stopping generation.");
                                 break;
                             }
 
+                            // Penalidade Repetição (simples: último token)
+                            if (lastPredictedTokenId != -1 && lastPredictedTokenId >= 0 && lastPredictedTokenId < outputLogits.shape[0])
+                            {
+                                outputLogits[lastPredictedTokenId] = -float.MaxValue;
+                            }
+
+                            // Aplicar Temperatura
+                            scaledLogits = outputLogits / Math.Max(this.samplingTemperature, 1e-6f);
+
+                            // Clonar para aplicar Top-K/Top-P sem modificar os logits escalados originais
+                            // (Embora neste código simplificado, não estamos usando Top-K/P, manter o clone é boa prática)
+                            finalLogitsForSampling = scaledLogits.clone();
+
+                            // *** (Opcional: Reintroduza a lógica Top-K / Top-P aqui se desejar usá-la) ***
+                            // Exemplo:
+                            // // Aplicar Top-K
+                            // bool useTopK = this.topK > 0;
+                            // if (useTopK) { finalLogitsForSampling = ApplyTopK(finalLogitsForSampling, this.topK); }
+                            // // Aplicar Top-P
+                            // bool useTopP = this.topP > 0.0f && this.topP < 1.0f;
+                            // if (useTopP) { finalLogitsForSampling = ApplyTopP(finalLogitsForSampling, this.topP); }
+
+                            // Calcular Probabilidades FINAIS (após filtros, se houver)
+                            probabilities = torch.softmax(finalLogitsForSampling, dim: 0);
+
+                            // ----- INÍCIO: LOG DA PROBABILIDADE DO EOS -----
+                            // *** CORREÇÃO: Usa cast explícito (bool) ***
+                            if (this.eosTokenIds.Any() && (bool)probabilities)
+                            {
+                                // Assumindo que eosTokenIds contém o ID correto (50256)
+                                int eosId = this.eosTokenIds.First();
+                                if (eosId >= 0 && eosId < probabilities.shape[0])
+                                {
+                                    try
+                                    {
+                                        // .item<float>() funciona direto em tensores de 1 elemento, independente do device
+                                        float eosProbability = probabilities[eosId].item<float>();
+                                        // Log com alta precisão (8 casas decimais)
+                                        Console.WriteLine($"      Step {step + 1}: Pr(EOS={eosId}) = {eosProbability:F8}");
+                                    }
+                                    catch (Exception probEx)
+                                    {
+                                        Console.Error.WriteLine($"      Step {step + 1}: Error getting probability for EOS={eosId}: {probEx.Message}");
+                                    }
+                                }
+                                // else { // Log se ID EOS estiver fora dos limites - improvável }
+                            }
+                            // ----- FIM: LOG DA PROBABILIDADE DO EOS -----
+
+                            // Amostragem Multinomial
+                            predictedIndexTensor = torch.multinomial(probabilities, num_samples: 1);
+                            predictedTokenId = (int)predictedIndexTensor.item<long>();
+                            Console.WriteLine($"ChatBotService: Step {step+1}: Sampled Token ID: {predictedTokenId}"); // Log do token escolhido
+
+                            // Verificar EOS para parar
+                            if (this.eosTokenIds.Contains(predictedTokenId))
+                            {
+                                Console.WriteLine($"ChatBotService: Step {step+1}: EOS token ({predictedTokenId}) sampled. Stopping generation.");
+                                break; // Sai do loop FOR
+                            }
+
+                            // Adicionar token gerado e preparar próximo input (como antes)
                             generatedTokenIds.Add(predictedTokenId);
-                            lastPredictedTokenId = predictedTokenId;
-                            // Preparar Próximo Input (lógica como antes)
-                             var nextInputTokenTensor = tensor(new long[] { (long)predictedTokenId }, dtype: ScalarType.Int64).to(device);
-                             long[] previousInputData; using (var cpuTensor = currentInput.cpu()) { previousInputData = cpuTensor.data<long>().ToArray(); }
-                             var nextSequenceLongs = previousInputData.Concat(new long[] { (long)predictedTokenId }).ToArray(); currentInput.Dispose();
-                             if (nextSequenceLongs.Length > tokenizer.GetMaxSequenceLength()) { int si = nextSequenceLongs.Length - tokenizer.GetMaxSequenceLength(); nextSequenceLongs = nextSequenceLongs.Skip(si).ToArray(); }
-                             currentInput = tensor(nextSequenceLongs, dtype: ScalarType.Int64).to(device); nextInputTokenTensor.Dispose();
+                            lastPredictedTokenId = predictedTokenId; // Atualiza para a próxima penalidade
+
+                            var nextInputTokenTensor = tensor(new long[] { (long)predictedTokenId }, dtype: ScalarType.Int64).to(device);
+                            long[] previousInputData; using (var cpuTensor = currentInput.cpu()) { previousInputData = cpuTensor.data<long>().ToArray(); }
+                            var nextSequenceLongs = previousInputData.Concat(new long[] { (long)predictedTokenId }).ToArray();
+                            currentInput.Dispose(); // Dispose tensor antigo ANTES de verificar tamanho
+
+                            // Truncar se necessário
+                            if (nextSequenceLongs.Length > tokenizer.GetMaxSequenceLength())
+                            {
+                                int startIndex = nextSequenceLongs.Length - tokenizer.GetMaxSequenceLength();
+                                nextSequenceLongs = nextSequenceLongs.Skip(startIndex).ToArray();
+                            }
+
+                            // Criar novo tensor de input
+                            currentInput = tensor(nextSequenceLongs, dtype: ScalarType.Int64).to(device);
+                            nextInputTokenTensor.Dispose(); // Dispose do tensor temporário
+
                         }
-                        catch (Exception stepEx) { Console.Error.WriteLine($"Error in generation step {step + 1}: {stepEx}"); break; }
-                        finally { /* ... Dispose tensores do passo ... */ }
+                        catch (Exception stepEx)
+                        {
+                            Console.Error.WriteLine($"Error in generation step {step + 1}: {stepEx}");
+                            break; // Sai do loop em caso de erro no passo
+                        }
+                        finally
+                        {
+                            // Dispose seguro dos tensores criados dentro do try do passo
+                            outputLogits?.Dispose();
+                            scaledLogits?.Dispose();
+                            finalLogitsForSampling?.Dispose(); // Dispose o clone também
+                            probabilities?.Dispose();
+                            predictedIndexTensor?.Dispose();
+                        }
                     } // --- Fim Loop FOR ---
                 } // --- Fim using no_grad ---
 
                 Console.WriteLine($"ChatBotService: Generation loop finished. Generated {generatedTokenIds.Count} tokens.");
 
-                // --- Detokenização DIRETA (Sem Refinamento) ---
+                // --- Detokenização DIRETA (Sem Refinamento) --- (Como na sua versão)
                 if (generatedTokenIds.Any())
                 {
                     try
                     {
-                        // *** Usa diretamente o resultado do Detokenize ***
                         finalResponseMessage = tokenizer.Detokenize(generatedTokenIds.ToArray());
                         Console.WriteLine($"DEBUG: Raw (Final) detokenized response: >>>{finalResponseMessage}<<<");
-
-                        // *** REMOVIDA a chamada para RefineGeneratedResponse ***
-
                         if (string.IsNullOrWhiteSpace(finalResponseMessage))
                         {
-                            Console.WriteLine("ChatBotService: Final response message is empty/whitespace after detokenization.");
                             finalResponseMessage = "[No meaningful response generated]";
                         }
                     }
-                    catch (Exception dtEx)
-                    {
-                        Console.Error.WriteLine($"Error during Detokenization: {dtEx.ToString()}");
-                        finalResponseMessage = "[Error processing response]";
-                    }
+                    catch (Exception dtEx) { /*...*/ finalResponseMessage = "[Error processing response]"; }
                 }
-                else
-                {
-                    Console.WriteLine("ChatBotService: No tokens were generated.");
-                    finalResponseMessage = "[No response generated]";
-                }
+                else { /*...*/ finalResponseMessage = "[No response generated]"; }
                 // --- Fim Detokenização ---
 
-                // 4. Envia a resposta final (bruta detokenizada)
+                // 4. Envia a resposta final
                 await SendMessage(webSocket, finalResponseMessage);
                 Console.WriteLine($"ChatBotService: SendMessage task awaited for final response: '{finalResponseMessage}'");
 
             } // Fim Try Principal
-            catch (Exception ex) { /* ... Log erro ... */ }
-            finally { /* ... Dispose tensores principais ... */ }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error in ProcessMessage: {ex.ToString()}");
+                await SendMessage(webSocket, "[An internal error occurred]"); // Tenta enviar erro genérico
+            }
+            finally
+            {
+                initialInputTensor?.Dispose();
+                currentInput?.Dispose(); // Garante dispose do último currentInput
+            }
         } // --- Fim do ProcessMessage ---
 
 
