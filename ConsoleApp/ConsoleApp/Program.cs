@@ -16,7 +16,7 @@ class Program
         // Let's use a different output name to avoid confusion
         string outputPath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer_bpe.json");
         
-        int totalTuples = 150000;
+        int totalTuples = 1500;
         string filePath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys","ChatbotTrainingDataWithExpandedCategories.json");
 
         var inputs = new[]
@@ -67,20 +67,18 @@ class Program
                 // Randomly select input, response, and category
                 var input = inputs[random.Next(inputs.Length)];
                 var output = responses[random.Next(responses.Length)] + "<|endoftext|>";
-                var category = categories[random.Next(categories.Length)];
 
                 var pair = new
                 {
                     input = input,
-                    output = output,
-                    category = category
+                    output = output
                 };
 
                 string jsonLine = JsonSerializer.Serialize(pair, options);
                 writer.WriteLine(jsonLine);
 
                 // Status update for large datasets
-                if ((i + 1) % 10000 == 0)
+                if ((i + 1) % 1500 == 0)
                     Console.WriteLine($"{i + 1} tuplas geradas...");
             }
         }

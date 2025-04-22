@@ -8,13 +8,13 @@ namespace ChatBotAPI.Settings
         // --- Configurações Antigas ---
         // public string TokenizerConfigPath { get; set; } = string.Empty; // Não mais necessário para SharpToken
         // public string MergesPath { get; set; } = string.Empty; // Não mais necessário para SharpToken
-        public int MaxSequenceLength { get; set; } = 50;
+        public int MaxSequenceLength { get; set; } = 128;
         // public int EmbeddingSize { get; set; } = 128; // Substituído por DModel
         public string ModelSavePath { get; set; } = "model_transformer_state.pt"; // Novo nome de arquivo
         public int TrainingEpochs { get; set; } = 10;
-        public float SamplingTemperature { get; set; } = 0.7f;
-        public int TopK { get; set; } = 40; // Ajustado valor padrão
-        public float TopP { get; set; } = 0.9f;
+        public float SamplingTemperature { get; set; } = 1.2f;
+        public int TopK { get; set; } = 100; // Ajustado valor padrão
+        public float TopP { get; set; } = 0.95f;
         public DecodingStrategy DecodingStrategy { get; set; } = DecodingStrategy.Sampling;
 
         // --- NOVOS Hiperparâmetros do Transformer ---

@@ -88,6 +88,22 @@ namespace ChatBotAPI.Core
             }
             catch (Exception ex) { Console.Error.WriteLine($"SharpToken Tokenize Error: {ex}"); throw; }
         }
+        
+        public List<int> GetTokenIdsWithoutPadding(string text)
+        {
+            if (_gptEncoding == null) throw new InvalidOperationException("SharpToken encoding not initialized.");
+            try
+            {
+                var allowedSpecial = new HashSet<string> { StandardGpt2EosToken }; // Permite EOS aqui também
+                // SharpToken Encode já retorna a lista de IDs sem padding/truncamento manual
+                return _gptEncoding.Encode(text, allowedSpecial: allowedSpecial);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"SharpToken GetTokenIdsWithoutPadding Error: {ex}");
+                throw; // Re-lança para indicar falha no cálculo
+            }
+        }
 
         // --- Método Detokenize (Inalterado) ---
         public string Detokenize(int[] tokens)

@@ -1,16 +1,14 @@
 {
   "version": 2,
-  "dgSpecHash": "lb0nRE7SVjA=",
+  "dgSpecHash": "ezQ34LDZzyg=",
   "success": true,
   "projectFilePath": "I:\\NinfaBot\\ChatBotAPI\\ChatBotAPI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\MPLopes\\.nuget\\packages\\google.protobuf\\3.27.1\\google.protobuf.3.27.1.nupkg.sha512",
-    "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu\\2.2.1.1\\libtorch-cpu.2.2.1.1.nupkg.sha512",
-    "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu-linux-x64\\2.2.1.1\\libtorch-cpu-linux-x64.2.2.1.1.nupkg.sha512",
-    "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu-osx-arm64\\2.2.1.1\\libtorch-cpu-osx-arm64.2.2.1.1.nupkg.sha512",
-    "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu-osx-x64\\2.2.1.1\\libtorch-cpu-osx-x64.2.2.1.1.nupkg.sha512",
-    "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu-win-x64\\2.2.1.1\\libtorch-cpu-win-x64.2.2.1.1.nupkg.sha512",
-    "C:\\Users\\MPLopes\\.nuget\\packages\\llm\\0.0.5\\llm.0.0.5.nupkg.sha512",
+    "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu\\2.5.1\\libtorch-cpu.2.5.1.nupkg.sha512",
+    "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu-linux-x64\\2.5.1\\libtorch-cpu-linux-x64.2.5.1.nupkg.sha512",
+    "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu-osx-arm64\\2.5.1\\libtorch-cpu-osx-arm64.2.5.1.nupkg.sha512",
+    "C:\\Users\\MPLopes\\.nuget\\packages\\libtorch-cpu-win-x64\\2.5.1\\libtorch-cpu-win-x64.2.5.1.nupkg.sha512",
     "C:\\Users\\MPLopes\\.nuget\\packages\\microsoft.aspnetcore.openapi\\8.0.13\\microsoft.aspnetcore.openapi.8.0.13.nupkg.sha512",
     "C:\\Users\\MPLopes\\.nuget\\packages\\microsoft.extensions.apidescription.server\\6.0.5\\microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512",
     "C:\\Users\\MPLopes\\.nuget\\packages\\microsoft.ml.tokenizers\\1.0.2\\microsoft.ml.tokenizers.1.0.2.nupkg.sha512",
@@ -26,8 +24,8 @@
     "C:\\Users\\MPLopes\\.nuget\\packages\\swashbuckle.aspnetcore.swaggerui\\6.6.2\\swashbuckle.aspnetcore.swaggerui.6.6.2.nupkg.sha512",
     "C:\\Users\\MPLopes\\.nuget\\packages\\system.memory\\4.5.5\\system.memory.4.5.5.nupkg.sha512",
     "C:\\Users\\MPLopes\\.nuget\\packages\\system.text.json\\8.0.5\\system.text.json.8.0.5.nupkg.sha512",
-    "C:\\Users\\MPLopes\\.nuget\\packages\\torchsharp\\0.102.0\\torchsharp.0.102.0.nupkg.sha512",
-    "C:\\Users\\MPLopes\\.nuget\\packages\\torchsharp-cpu\\0.102.0\\torchsharp-cpu.0.102.0.nupkg.sha512"
+    "C:\\Users\\MPLopes\\.nuget\\packages\\torchsharp\\0.105.0\\torchsharp.0.105.0.nupkg.sha512",
+    "C:\\Users\\MPLopes\\.nuget\\packages\\torchsharp-cpu\\0.105.0\\torchsharp-cpu.0.105.0.nupkg.sha512"
   ],
   "logs": []
 }
