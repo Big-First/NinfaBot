@@ -60,9 +60,21 @@
               "target": "Package",
               "version": "[8.1.0, )"
             },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[13.0.3, )"
+            },
+            "SharpToken": {
+              "target": "Package",
+              "version": "[2.0.3, )"
+            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"
+            },
+            "TorchSharp-cpu": {
+              "target": "Package",
+              "version": "[0.105.0, )"
             }
           },
           "imports": [

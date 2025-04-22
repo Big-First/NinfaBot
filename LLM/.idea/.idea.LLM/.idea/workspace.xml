@@ -9,7 +9,33 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a56b0289-a745-4c88-a4d9-d5d5430aa01d" name="Changes" comment="" />
+    <list default="true" id="a56b0289-a745-4c88-a4d9-d5d5430aa01d" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/LLM/Core/FeedForward.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/LLM/Core/MultiHeadSelfAttention.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/LLM/Core/SamplingUtils.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/LLM/Core/Tokenizer.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/LLM/Core/Trainer.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/LLM/Core/TransformerBlock.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/LLM/Core/TransformerModel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/LLM/Models/PromptRequest.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/LLM/Models/TreinamentExample.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.LLM/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.LLM/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/Hosts/Startup.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/Hosts/Startup.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/LLM.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/LLM.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/appsettings.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/appsettings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfo.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.assets.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.assets.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.csproj.AssemblyReference.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.csproj.AssemblyReference.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.dgspec.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.dgspec.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.props" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.props" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.targets" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.targets" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/project.assets.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/project.assets.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/project.nuget.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/project.nuget.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/project.packagespec.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/project.packagespec.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/rider.project.model.nuget.info" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/rider.project.model.nuget.info" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/rider.project.restore.info" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/rider.project.restore.info" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -18,27 +44,30 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 7
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
   <component name="ProjectId" id="2w4JOp0mroGQCvbO6rtjtIeZwPj" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "LLM-22-04-2025-01-14",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;LLM-22-04-2025-01-14&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected=".NET Launch Settings Profile.LLM: IIS Express">
     <configuration name="LLM: IIS Express" type="LaunchSettings" factoryName=".NET Launch Settings Profile">
       <option name="LAUNCH_PROFILE_PROJECT_FILE_PATH" value="$PROJECT_DIR$/LLM/LLM.csproj" />
@@ -107,11 +136,17 @@
       <method v="2" />
     </configuration>
     <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
-      <deployment type="docker-compose.yml" />
+      <deployment type="docker-compose.yml">
+        <settings />
+      </deployment>
+      <EXTENSION ID="com.jetbrains.rider.docker.debug" isFastModeEnabled="true" isSslEnabled="false" />
       <method v="2" />
     </configuration>
     <configuration default="true" type="docker-deploy" factoryName="dockerfile" temporary="true">
-      <deployment type="dockerfile" />
+      <deployment type="dockerfile">
+        <settings />
+      </deployment>
+      <EXTENSION ID="com.jetbrains.rider.docker.debug" isFastModeEnabled="true" isSslEnabled="false" />
       <method v="2" />
     </configuration>
     <configuration name="compose.yaml: Compose Deployment" type="docker-deploy" factoryName="docker-compose.yml" server-name="Docker">
@@ -133,6 +168,7 @@
       <option name="presentableId" value="Default" />
       <updated>1745294883803</updated>
       <workItem from="1745294885142" duration="878000" />
+      <workItem from="1745328378854" duration="11061000" />
     </task>
     <servers />
   </component>
