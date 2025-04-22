@@ -12,18 +12,55 @@ using static TorchSharp.torch.nn;
 
 namespace ChatBotAPI.Core
 {
+    /// <summary>
+    /// Handles the training process for a neural network model using TorchSharp.
+    /// This class manages model training, loss calculation, optimization, and model state saving.
+    /// </summary>
     public class Trainer
     {
+        /// <summary>
+        /// The neural network model being trained.
+        /// </summary>
         private readonly TorchSharpModel model;
-        private readonly Tokenizer tokenizer;
-        private readonly Optimizer optimizer;
-        private readonly Module<Tensor, Tensor, Tensor> lossFunction;
-        private readonly Device device;
-        private readonly string modelSavePath;
-        // Adiciona um helper para reportar progresso via IProgress<T> se necessário
-        private Action<string> Report = Console.WriteLine; // Default para Console
 
-        // Construtor MODIFICADO
+        /// <summary>
+        /// Tokenizer used for converting text into token sequences.
+        /// </summary>
+        private readonly Tokenizer tokenizer;
+
+        /// <summary>
+        /// Optimizer used for updating model parameters during training.
+        /// </summary>
+        private readonly Optimizer optimizer;
+
+        /// <summary>
+        /// Loss function used to calculate training loss.
+        /// </summary>
+        private readonly Module<Tensor, Tensor, Tensor> lossFunction;
+
+        /// <summary>
+        /// The device (CPU/GPU) where the model is being trained.
+        /// </summary>
+        private readonly Device device;
+
+        /// <summary>
+        /// Path where the trained model will be saved.
+        /// </summary>
+        private readonly string modelSavePath;
+
+        /// <summary>
+        /// Action delegate for reporting training progress.
+        /// </summary>
+        private Action<string> Report = Console.WriteLine;
+
+        /// <summary>
+        /// Initializes a new instance of the Trainer class.
+        /// </summary>
+        /// <param name="model">The neural network model to train.</param>
+        /// <param name="tokenizer">Tokenizer for converting text to tokens.</param>
+        /// <param name="learningRate">Learning rate for the optimizer.</param>
+        /// <param name="modelSavePath">Path where the trained model will be saved.</param>
+        /// <exception cref="ArgumentNullException">Thrown when model or tokenizer is null.</exception>
         public Trainer(TorchSharpModel model, Tokenizer tokenizer, double learningRate, string modelSavePath)
         {
             this.model = model ?? throw new ArgumentNullException(nameof(model));
@@ -44,7 +81,21 @@ namespace ChatBotAPI.Core
             if (tokenizer.ActualVocabSize <= 2) { /* ... alerta ... */ }
         }
 
-        // Método Train MODIFICADO para aceitar IProgress e usar Tokenize sem padding
+        /// <summary>
+        /// Trains the model on the provided training data.
+        /// </summary>
+        /// <param name="trainingData">List of training sentences.</param>
+        /// <param name="epochs">Number of training epochs.</param>
+        /// <param name="progressReporter">Optional progress reporter for monitoring training progress.</param>
+        /// <remarks>
+        /// The training process includes:
+        /// - Tokenization of input sentences
+        /// - Forward pass through the model
+        /// - Loss calculation
+        /// - Backward pass and parameter updates
+        /// - Progress reporting
+        /// - Model state saving
+        /// </remarks>
         public void Train(List<string> trainingData, int epochs, IProgress<string>? progressReporter = null)
         {
              // Atualiza o reporter se um foi fornecido

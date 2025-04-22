@@ -7,21 +7,44 @@ using SharpToken;
 
 namespace ChatBotAPI.Core
 {
+    /// <summary>
+    /// Provides tokenization functionality for text processing using GPT-2 encoding.
+    /// This class handles text tokenization, detokenization, and manages token-related operations
+    /// using the SharpToken library for GPT-2 (r50k_base) encoding.
+    /// </summary>
     public partial class Tokenizer // Mantém partial se houver outra parte
     {
         private readonly GptEncoding _gptEncoding;
         private readonly int maxSequenceLength; // Max len para TRUNCAMENTO, não padding aqui
 
-        // --- IDs ---
+        /// <summary>
+        /// Gets the token ID used for padding sequences.
+        /// </summary>
         public int PadTokenId { get; private set; }
+
+        /// <summary>
+        /// Gets the token ID used for unknown tokens.
+        /// </summary>
         public int UnkTokenId { get; private set; }
+
+        /// <summary>
+        /// Gets the token ID used for end of sequence.
+        /// </summary>
         public int EosTokenId { get; private set; }
+
+        /// <summary>
+        /// Gets the size of the vocabulary used by the tokenizer.
+        /// </summary>
         public int VocabSize { get; private set; }
 
         private const int StandardGpt2VocabSize = 50257;
         private const int StandardGpt2EosPadId = 50256;
 
-        // Construtor (como antes)
+        /// <summary>
+        /// Initializes a new instance of the Tokenizer class.
+        /// </summary>
+        /// <param name="maxSequenceLength">The maximum sequence length for tokenization operations.</param>
+        /// <exception cref="InvalidOperationException">Thrown when the GPT encoding initialization fails.</exception>
         public Tokenizer(int maxSequenceLength)
         {
              this.maxSequenceLength = maxSequenceLength; // Guarda o max len para truncamento opcional
@@ -45,9 +68,19 @@ namespace ChatBotAPI.Core
              } catch (Exception ex) { /*...*/ throw; }
         }
 
+        /// <summary>
+        /// Gets the actual vocabulary size used by the tokenizer.
+        /// </summary>
         public int ActualVocabSize => this.VocabSize;
 
-        // ***** MÉTODO Tokenize MODIFICADO *****
+        /// <summary>
+        /// Tokenizes the input text into a sequence of token IDs.
+        /// </summary>
+        /// <param name="text">The text to tokenize.</param>
+        /// <param name="allowedSpecial">Optional set of special tokens that are allowed in the text.</param>
+        /// <param name="applyPaddingTruncation">If true, applies padding or truncation to match maxSequenceLength.</param>
+        /// <returns>An array of token IDs representing the tokenized text.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the encoding is not initialized.</exception>
         public int[] Tokenize(string text, HashSet<string>? allowedSpecial = null, bool applyPaddingTruncation = true)
         {
             if (_gptEncoding == null) throw new InvalidOperationException("SharpToken encoding not initialized.");
@@ -84,7 +117,12 @@ namespace ChatBotAPI.Core
          // ***** FIM MÉTODO Tokenize MODIFICADO *****
 
 
-        // Método Detokenize (como antes)
+        /// <summary>
+        /// Converts a sequence of token IDs back into text.
+        /// </summary>
+        /// <param name="tokens">The array of token IDs to convert.</param>
+        /// <returns>The decoded text string.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the encoding is not initialized.</exception>
         public string Detokenize(int[] tokens)
         {
              if (_gptEncoding == null) throw new InvalidOperationException("SharpToken encoding not initialized.");
@@ -98,7 +136,10 @@ namespace ChatBotAPI.Core
              catch (Exception ex) { Console.Error.WriteLine($"SharpToken Detokenize Error: {ex}"); return "[Detokenization Error]"; }
         }
 
-        // Método GetMaxSequenceLength (como antes)
+        /// <summary>
+        /// Gets the maximum sequence length configured for the tokenizer.
+        /// </summary>
+        /// <returns>The maximum sequence length.</returns>
         public int GetMaxSequenceLength()
         {
             return this.maxSequenceLength;

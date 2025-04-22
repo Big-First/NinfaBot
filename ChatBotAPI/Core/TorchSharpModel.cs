@@ -7,26 +7,66 @@ using TorchSharp.Modules; // Necessário para Dropout
 using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
 
-namespace ChatBotAPI.Core
+namespace AIAPI.Core
 {
+    /// <summary>
+    /// Implements a neural network model using TorchSharp with LSTM architecture and dropout regularization.
+    /// This model is designed for sequence processing tasks, particularly text generation or classification.
+    /// </summary>
     public class TorchSharpModel : Module<Tensor, Tensor>
     {
+        /// <summary>
+        /// Embedding layer that converts token indices to dense vectors.
+        /// </summary>
         private readonly Embedding embedding;
+
+        /// <summary>
+        /// LSTM layer for processing sequential data.
+        /// </summary>
         private readonly LSTM lstm;
-        private readonly Dropout lstm_dropout; // *** NOVO: Camada Dropout ***
+
+        /// <summary>
+        /// Dropout layer for regularization to prevent overfitting.
+        /// </summary>
+        private readonly Dropout lstm_dropout;
+
+        /// <summary>
+        /// Linear layer for final output transformation.
+        /// </summary>
         private readonly Linear linearOutput;
+
+        /// <summary>
+        /// Size of the hidden state in the LSTM layer.
+        /// </summary>
         private readonly int hiddenSize;
+
+        /// <summary>
+        /// Index used for padding tokens in the vocabulary.
+        /// </summary>
         private readonly int paddingIdx;
+
+        /// <summary>
+        /// Number of LSTM layers in the model.
+        /// </summary>
         private readonly int numLSTMLayers;
 
-        // Construtor MODIFICADO para incluir taxa de dropout
+        /// <summary>
+        /// Initializes a new instance of the TorchSharpModel with specified parameters.
+        /// </summary>
+        /// <param name="vocabSize">Size of the vocabulary (number of unique tokens).</param>
+        /// <param name="embeddingSize">Dimension of the embedding vectors.</param>
+        /// <param name="paddingIdx">Index used for padding tokens (default: 0).</param>
+        /// <param name="hiddenSize">Size of the LSTM hidden state (default: 128).</param>
+        /// <param name="numLSTMLayers">Number of LSTM layers (default: 1).</param>
+        /// <param name="dropoutRate">Probability of dropout for regularization (default: 0.2).</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when any parameter is invalid.</exception>
         public TorchSharpModel(
             int vocabSize,
             int embeddingSize,
             int paddingIdx = 0,
             int hiddenSize = 128,
             int numLSTMLayers = 1,
-            double dropoutRate = 0.2) // *** NOVO: Parâmetro Dropout Rate (com default) ***
+            double dropoutRate = 0.2)
             : base(nameof(TorchSharpModel))
         {
             // Validações básicas
@@ -43,7 +83,7 @@ namespace ChatBotAPI.Core
             // Definição das Camadas
             this.embedding = Embedding(vocabSize, embeddingSize, padding_idx: this.paddingIdx);
             this.lstm = LSTM(inputSize: embeddingSize, hiddenSize: this.hiddenSize, numLayers: this.numLSTMLayers, batchFirst: false); // batchFirst=false espera (SeqLen, Batch, Features)
-            this.lstm_dropout = Dropout(p: dropoutRate); // *** NOVO: Inicializa Dropout ***
+            this.lstm_dropout = Dropout(p: dropoutRate);
             this.linearOutput = Linear(inputSize: this.hiddenSize, outputSize: vocabSize);
 
             RegisterComponents(); // Registra todas as camadas (incluindo dropout) para gerenciamento
@@ -51,7 +91,13 @@ namespace ChatBotAPI.Core
             Console.WriteLine($"TorchSharpModel (LSTM) Initialized: VocabSize={vocabSize}, EmbeddingSize={embeddingSize}, HiddenSize={this.hiddenSize}, LSTMLayers={this.numLSTMLayers}, PaddingIdx={this.paddingIdx}, DropoutRate={dropoutRate}"); // Log atualizado
         }
 
-        // --- Método forward com LSTM e Dropout ---
+        /// <summary>
+        /// Performs the forward pass through the neural network.
+        /// </summary>
+        /// <param name="input">Input tensor containing token indices.</param>
+        /// <returns>Output tensor containing logits for the next token prediction.</returns>
+        /// <exception cref="NullReferenceException">Thrown when LSTM output sequence is null.</exception>
+        /// <exception cref="InvalidOperationException">Thrown when logits become null after linear layer.</exception>
         public override Tensor forward(Tensor input)
         {
             Tensor? embedded = null;

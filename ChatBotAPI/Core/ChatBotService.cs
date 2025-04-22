@@ -10,21 +10,107 @@ using System.Threading.Tasks;
 using TorchSharp;
 using static TorchSharp.torch;
 
+/// <summary>
+/// Namespace principal da API da AI.
+/// </summary>
+/// <remarks>
+/// Este namespace contém os componentes principais da AIt, incluindo:
+/// - Serviço de geração de texto
+/// - Processamento de mensagens
+/// - Comunicação via WebSocket
+/// </remarks>
 namespace ChatBotAPI.Core
 {
+    /// <summary>
+    /// Serviço principal da AI que gerencia a geração de respostas usando um modelo de linguagem.
+    /// </summary>
+    /// <remarks>
+    /// Esta classe é responsável por:
+    /// - Gerenciar a comunicação com o modelo de linguagem
+    /// - Processar mensagens recebidas via WebSocket
+    /// - Gerar respostas usando técnicas de sampling (temperatura, top-k, top-p)
+    /// - Gerenciar o ciclo de vida dos tensores e recursos do modelo
+    /// 
+    /// O serviço implementa várias técnicas de controle de geração de texto:
+    /// - Sampling com temperatura para controlar aleatoriedade
+    /// - Top-k sampling para limitar as escolhas de tokens
+    /// - Nucleus sampling (top-p) para controlar a diversidade
+    /// - Penalidade de repetição para evitar loops
+    /// - Detecção de tokens EOS para parar a geração
+    /// 
+    /// O serviço também inclui recursos de depuração e logging extensivos
+    /// para facilitar o diagnóstico de problemas durante a geração.
+    /// </remarks>
     public class ChatBotService
     {
+        /// <summary>
+        /// Modelo de linguagem TorchSharp usado para geração de texto.
+        /// </summary>
         private readonly TorchSharpModel model;
+
+        /// <summary>
+        /// Tokenizador para converter texto em tokens e vice-versa.
+        /// </summary>
         private readonly Tokenizer tokenizer;
+
+        /// <summary>
+        /// Dispositivo (CPU ou CUDA) onde o modelo será executado.
+        /// </summary>
         private readonly Device device;
+
+        /// <summary>
+        /// Número máximo de tokens que podem ser gerados em uma resposta.
+        /// </summary>
         private readonly int maxGeneratedTokens;
+
+        /// <summary>
+        /// ID do token de padding usado para alinhar sequências.
+        /// </summary>
         private readonly int padTokenId;
+
+        /// <summary>
+        /// Temperatura usada para controlar a aleatoriedade na geração de texto.
+        /// Valores mais altos resultam em texto mais diverso, valores mais baixos em texto mais determinístico.
+        /// </summary>
         private readonly float samplingTemperature;
+
+        /// <summary>
+        /// Número de tokens mais prováveis a considerar durante a amostragem (top-k sampling).
+        /// Se 0, o top-k sampling está desabilitado.
+        /// </summary>
         private readonly int topK;
+
+        /// <summary>
+        /// Probabilidade cumulativa para amostragem núcleo (nucleus sampling).
+        /// Se 0, o nucleus sampling está desabilitado.
+        /// </summary>
         private readonly float topP;
+
+        /// <summary>
+        /// Conjunto de IDs de tokens que indicam o fim da sequência (EOS).
+        /// </summary>
         private readonly HashSet<int> eosTokenIds;
 
-        // Construtor (aceita parâmetros de sampling)
+        /// <summary>
+        /// Inicializa uma nova instância da AItService.
+        /// </summary>
+        /// <param name="model">O modelo de linguagem TorchSharp a ser utilizado</param>
+        /// <param name="tokenizer">O tokenizador para processamento de texto</param>
+        /// <param name="maxGeneratedTokens">Número máximo de tokens a serem gerados</param>
+        /// <param name="samplingTemperature">Temperatura para amostragem (controla aleatoriedade)</param>
+        /// <param name="topK">Número de tokens mais prováveis a considerar (0 para desabilitar)</param>
+        /// <param name="topP">Probabilidade cumulativa para amostragem núcleo (0 para desabilitar)</param>
+        /// <exception cref="ArgumentNullException">Lançado quando model ou tokenizer são nulos</exception>
+        /// <remarks>
+        /// O construtor configura o serviço com os seguintes parâmetros:
+        /// - Modelo de linguagem e tokenizador para processamento de texto
+        /// - Limites de geração e parâmetros de sampling
+        /// - Dispositivo de execução (CPU ou CUDA)
+        /// - Tokens especiais (PAD, EOS)
+        /// 
+        /// A temperatura deve ser maior que 0 para evitar divisão por zero.
+        /// Se topK e topP forem ambos configurados, um aviso será registrado.
+        /// </remarks>
         public ChatBotService(
             TorchSharpModel model,
             Tokenizer tokenizer,
@@ -65,7 +151,16 @@ namespace ChatBotAPI.Core
             Console.WriteLine("ChatBotService: Model set to eval() mode.");
         }
 
-        // --- Função de Debug (pode ser mantida ou removida se não for mais útil) ---
+        /// <summary>
+        /// Função auxiliar para debug que imprime informações sobre o texto gerado.
+        /// </summary>
+        /// <param name="generatedTokenIds">Lista de IDs de tokens gerados</param>
+        /// <param name="contextMessage">Mensagem de contexto para o debug</param>
+        /// <returns>Texto detokenizado para debug</returns>
+        /// <remarks>
+        /// Esta função é útil para depuração e logging durante o processo de geração de texto.
+        /// Ela imprime informações detalhadas sobre os tokens gerados e o texto resultante.
+        /// </remarks>
         private string PrintGeneratedTextDebug(List<int> generatedTokenIds,
             string contextMessage = "Detokenized Debug Output")
         {
@@ -97,7 +192,27 @@ namespace ChatBotAPI.Core
             return "";
         }
 
-        // --- MÉTODO ProcessMessage SEM REFINAMENTO ---
+        /// <summary>
+        /// Processa uma mensagem recebida via WebSocket e gera uma resposta usando o modelo.
+        /// </summary>
+        /// <param name="webSocket">Conexão WebSocket para enviar a resposta</param>
+        /// <param name="message">Mensagem de entrada a ser processada</param>
+        /// <returns>Task representando a operação assíncrona</returns>
+        /// <remarks>
+        /// O processo inclui:
+        /// 1. Tokenização da entrada
+        /// 2. Preparação do tensor inicial
+        /// 3. Loop de geração de tokens
+        /// 4. Detokenização e envio da resposta
+        /// 
+        /// O método implementa várias técnicas de controle de geração:
+        /// - Temperatura para controlar aleatoriedade
+        /// - Top-k sampling para limitar as escolhas de tokens
+        /// - Nucleus sampling (top-p) para controlar a diversidade
+        /// - Penalidade de repetição para evitar loops
+        /// - Detecção de tokens EOS para parar a geração
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">Lançado quando webSocket ou message são nulos</exception>
         public async Task ProcessMessage(WebSocket webSocket, string message)
         {
             if (string.IsNullOrEmpty(message)) return;
@@ -306,7 +421,17 @@ namespace ChatBotAPI.Core
         // *** FUNÇÃO RefineGeneratedResponse REMOVIDA COMPLETAMENTE DA CLASSE ***
 
 
-        // --- Função auxiliar SendMessage ---
+        /// <summary>
+        /// Envia uma mensagem através da conexão WebSocket.
+        /// </summary>
+        /// <param name="webSocket">Conexão WebSocket para envio</param>
+        /// <param name="message">Mensagem a ser enviada</param>
+        /// <returns>Task representando a operação assíncrona</returns>
+        /// <remarks>
+        /// A mensagem é codificada em UTF-8 e enviada como texto.
+        /// O método aguarda até que a mensagem seja completamente enviada.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">Lançado quando webSocket ou message são nulos</exception>
         private async Task SendMessage(WebSocket webSocket, string message)
         {
             var messageBuffer = Encoding.UTF8.GetBytes(message);
