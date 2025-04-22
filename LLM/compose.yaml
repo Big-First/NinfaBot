@@ -1,0 +1,6 @@
+﻿services:
+  llm:
+    image: llm
+    build:
+      context: .
+      dockerfile: Dockerfile
