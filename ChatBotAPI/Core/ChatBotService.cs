@@ -5,8 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using TorchSharp;
 using static TorchSharp.torch;
 
@@ -19,7 +17,7 @@ using static TorchSharp.torch;
 /// - Processamento de mensagens
 /// - Comunicação via WebSocket
 /// </remarks>
-namespace ChatBotAPI.Core
+namespace AI.Core
 {
     /// <summary>
     /// Serviço principal da AI que gerencia a geração de respostas usando um modelo de linguagem.

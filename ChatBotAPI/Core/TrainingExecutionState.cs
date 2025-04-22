@@ -1,4 +1,4 @@
-﻿namespace ChatBotAPI.Core;
+﻿namespace AI.Core;
 
 public class TrainingExecutionState
 {

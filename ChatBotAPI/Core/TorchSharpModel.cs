@@ -1,13 +1,11 @@
-﻿// TorchSharpModel.cs - VERSÃO LSTM COM DROPOUT ADICIONADO
-
-using System;
+﻿using System;
 using System.Linq;
 using TorchSharp;
 using TorchSharp.Modules; // Necessário para Dropout
 using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
 
-namespace AIAPI.Core
+namespace AI.Core
 {
     /// <summary>
     /// Implements a neural network model using TorchSharp with LSTM architecture and dropout regularization.

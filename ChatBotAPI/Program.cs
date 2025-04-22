@@ -14,7 +14,7 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json; // Usado para JsonException, se necessário
-using ChatBotAPI.Core;
+using AI.Core;
 using ChatBotAPI.Models; // Namespace principal para suas classes
 // Remova 'using ChatBotAPI.Settings;' se ModelSettings está em Core
 using Microsoft.Extensions.Options;

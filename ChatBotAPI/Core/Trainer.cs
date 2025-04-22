@@ -1,16 +1,10 @@
-﻿// Trainer.cs
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Diagnostics;
-using System.IO;
+﻿using System.Diagnostics;
 using TorchSharp;
 using static TorchSharp.torch;
 using static TorchSharp.torch.optim;
 using static TorchSharp.torch.nn;
 
-namespace ChatBotAPI.Core
+namespace AI.Core
 {
     /// <summary>
     /// Handles the training process for a neural network model using TorchSharp.

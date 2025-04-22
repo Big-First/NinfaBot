@@ -1,11 +1,6 @@
-﻿// Tokenizer.cs
+﻿using SharpToken;
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using SharpToken;
-
-namespace ChatBotAPI.Core
+namespace AI.Core
 {
     /// <summary>
     /// Provides tokenization functionality for text processing using GPT-2 encoding.
