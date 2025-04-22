@@ -12,11 +12,29 @@ class Program
 {
     static async Task Main(string[] args)
     {
+        /*
         string inputPath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer.json");
         // Let's use a different output name to avoid confusion
         string outputPath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer_bpe.json");
+        
 
         await GenerateSimulatedBpeMerges(inputPath, outputPath);
+        */
+        string url = "https://huggingface.co/egonrp/gpt2-small-portuguese/resolve/main/tokenizer.json";
+        string outputPath = Path.Combine(Directory.GetCurrentDirectory(), "Vocabularys","tokenizer.json");
+
+        using HttpClient client = new HttpClient();
+        try
+        {
+            Console.WriteLine("Baixando tokenizer.json...");
+            byte[] data = await client.GetByteArrayAsync(url);
+            await File.WriteAllBytesAsync(outputPath, data);
+            Console.WriteLine("Download concluído com sucesso!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao baixar: {ex.Message}");
+        }
     }
 
     public static async Task GenerateSimulatedBpeMerges(string inputJsonPath, string outputJsonPath)

@@ -1,21 +1,21 @@
 {
   "format": 1,
   "restore": {
-    "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj": {}
+    "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj": {}
   },
   "projects": {
-    "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj": {
+    "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
+        "projectUniqueName": "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
         "projectName": "ConsoleApp",
-        "projectPath": "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
+        "projectPath": "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\ConsoleApp.csproj",
         "packagesPath": "C:\\Users\\MPLopes\\.nuget\\packages\\",
-        "outputPath": "I:\\NinfaBot\\ConsoleApp\\ConsoleApp\\obj\\",
+        "outputPath": "H:\\GitHub\\NinfaBot\\ConsoleApp\\ConsoleApp\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "H:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
-          "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet\\"
+          "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet"
         ],
         "configFilePaths": [
           "C:\\Users\\MPLopes\\AppData\\Roaming\\NuGet\\NuGet.Config",
