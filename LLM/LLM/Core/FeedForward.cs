@@ -1,5 +1,4 @@
-﻿// --- START OF FILE FeedForward.cs ---
-using TorchSharp;
+﻿using TorchSharp;
 using static TorchSharp.torch;
 
 namespace LLM.Core;
