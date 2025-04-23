@@ -1,4 +1,5 @@
 ﻿using TorchSharp;
+using TorchSharp.Modules;
 using static TorchSharp.torch;
 using static TorchSharp.torch.nn;
 
@@ -30,17 +31,19 @@ public class TransformerBlock : Module
         RegisterComponents();
     }
 
-    public override Tensor forward(Tensor x)
+    public Tensor forward(Tensor x)
     {
         var residual1 = x;
-        // Tentativa de cast explícito para diagnóstico
-        var attnOutput = ((Module)attn).forward(((Module)norm1).forward(x));
-        x = residual1 + ((Module)dropout1).forward(attnOutput);
+        var norm1_out = norm1.forward(x); // norm1 é LayerNorm, herda de Module. Forward deve ser resolvido.
+        var attnOutput = attn.forward(norm1_out); // attn é MultiHeadSelfAttention, DEVE herdar de Module. Forward deve ser resolvido.
+        var dropout1_out = dropout1.forward(attnOutput); // dropout1 é Dropout, herda de Module. Forward deve ser resolvido.
+        x = residual1 + dropout1_out;
 
         var residual2 = x;
-        // Tentativa de cast explícito para diagnóstico
-        var ffOutput = ((Module)ff).forward(((Module)norm2).forward(x));
-        x = residual2 + ((Module)dropout2).forward(ffOutput);
+        var norm2_out = norm2.forward(x); // norm2 é LayerNorm
+        var ffOutput = ff.forward(norm2_out); // ff é FeedForward, DEVE herdar de Module
+        var dropout2_out = dropout2.forward(ffOutput); // dropout2 é Dropout
+        x = residual2 + dropout2_out;
 
         return x;
     }
