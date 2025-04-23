@@ -1,90 +1,77 @@
 ﻿using TorchSharp;
 using static TorchSharp.torch;
+using static TorchSharp.torch.nn; // Necessário para nn.Linear, nn.Dropout, nn.Module (para herança e métodos de fábrica)
+using System; // Necessário para Math.Sqrt, float.NegativeInfinity, ArgumentException
+using TorchSharp.Modules; // NECESSÁRIO para os TIPOS de classe: Linear, Dropout, LayerNorm, Embedding, etc.
 
 namespace LLM.Core;
 
-public class MultiHeadSelfAttention : nn.Module
+public class MultiHeadSelfAttention : Module // Herda de nn.Module
 {
     private readonly int embedDim, numHeads, headDim;
-    private readonly nn.Linear qkv, proj;
-    private readonly Tensor mask; // Máscara causal pré-calculada
-    private readonly double dropoutProb; // Adicionar probabilidade de dropout
-    private readonly nn.Dropout dropout; // Adicionar camada de dropout
+    private readonly Linear qkv, proj; // Camadas Lineares (Tipo Linear do TorchSharp.Modules)
+    private readonly Dropout dropout; // Camada de Dropout (Tipo Dropout do TorchSharp.Modules) // <-- ESTA É A VARIÁVEL PARA A INSTÂNCIA DO MÓDULO
+    private readonly Tensor mask; // Máscara causal pré-calculada (Tipo Tensor do TorchSharp)
+    private readonly double dropoutProb; // Probabilidade de dropout (um double) // <-- ESTA É A VARIÁVEL PARA O VALOR NUMÉRICO
 
 
-    // Adicione maxSeqLen ao construtor se quiser que a máscara seja baseada nele
+    // Adicione maxSeqLen e dropout ao construtor
     public MultiHeadSelfAttention(string name, int embedDim, int numHeads, int maxSeqLen = 512, double dropout = 0.1) : base(name)
     {
         if (embedDim % numHeads != 0)
             throw new ArgumentException("embedDim deve ser divisível por numHeads");
 
         this.embedDim = embedDim;
+        this.dropoutProb = dropout; // Salvar probabilidade de dropout NO CAMPO dropoutProb
+
+        // Inicializar numHeads e headDim
         this.numHeads = numHeads;
         this.headDim = embedDim / numHeads;
-        this.dropoutProb = dropout; // Salvar probabilidade de dropout
 
-        qkv = nn.Linear(embedDim, embedDim * 3);
-        proj = nn.Linear(embedDim, embedDim);
-        dropout = nn.Dropout(dropoutProb); // Instanciar camada de dropout
 
-        // Pré-calcula a máscara causal para eficiência.
-        // Certifique-se de que maxSeqLen seja grande o suficiente para suas necessidades.
-        // A máscara onde é TRUE, o valor SERÁ SUBSTITUÍDO (geralmente por -inf)
-        mask = torch.tril(torch.ones(maxSeqLen, maxSeqLen, dtype: torch.@bool)).logical_not(); // Máscara triangular inferior negada
-                                                                                             // Onde mask é true (acima da diagonal), o valor será substituído por -infinity
+        qkv = Linear(embedDim, embedDim * 3); // Projeta para Q, K, V (concatenados)
+        proj = Linear(embedDim, embedDim);   // Projeção final da saída da atenção
 
-        // Registrar como buffer não treinável. O "1, 1" na dimensão é opcional aqui,
-        // o slicing no forward vai ajustar de qualquer forma. Mantendo 2D (maxSeqLen, maxSeqLen)
-        // é mais limpo, o slicing no forward adiciona as dims de batch/heads.
+        // CORREÇÃO AQUI: Atribuir o resultado de Dropout(dropoutProb) PARA A VARIÁVEL 'dropout'
+        dropout = Dropout(dropoutProb); // Chama o método de fábrica nn.Dropout(), retorna um objeto Dropout
+
+        // Pré-calcula a máscara causal (triângulo superior)
+        mask = torch.tril(torch.ones(maxSeqLen, maxSeqLen, dtype: torch.@bool)).logical_not(); // Cria máscara booleana
+
         RegisterBuffer("causal_mask", mask);
 
-
-        RegisterComponents();
+        RegisterComponents(); // ESSENCIAL: Registra os sub-módulos e buffers
     }
 
     public override Tensor forward(Tensor x)
     {
-        int B = x.shape[0]; // Batch size
-        int T = x.shape[1]; // Sequence length
-        int D = embedDim;   // Embedding dimension
+        // x shape: (B, T, D)
+        int B = x.shape[0];
+        int T = x.shape[1];
+        int D = embedDim;
 
-        // Mover a máscara para o mesmo dispositivo que o tensor de entrada 'x'
         var current_mask = this.get_buffer("causal_mask").AsTensor().to(device: x.device);
 
-        var qkvOut = qkv.forward(x); // (B, T, 3*D)
+        var qkvOut = qkv.forward(x);
 
-        // Separa Q, K, V
-        // O slicing precisa considerar o tamanho da dimensão 2, que é 3*D
-        var q = qkvOut.slice(2, 0 * D, 1 * D).view(B, T, numHeads, headDim).transpose(1, 2); // (B, H, T, Dh)
-        var k = qkvOut.slice(2, 1 * D, 2 * D).view(B, T, numHeads, headDim).transpose(1, 2); // (B, H, T, Dh)
-        var v = qkvOut.slice(2, 2 * D, 3 * D).view(B, T, numHeads, headDim).transpose(1, 2); // (B, H, T, Dh)
+        var q = qkvOut.slice(2, 0 * headDim * numHeads, 1 * headDim * numHeads).view(B, T, numHeads, headDim).transpose(1, 2);
+        var k = qkvOut.slice(2, 1 * headDim * numHeads, 2 * headDim * numHeads).view(B, T, numHeads, headDim).transpose(1, 2);
+        var v = qkvOut.slice(2, 2 * headDim * numHeads, 3 * headDim * numHeads).view(B, T, numHeads, headDim).transpose(1, 2);
 
-
-        // Calcular scores de atenção: Q * K^T / sqrt(Dh)
-        // (B, H, T, Dh) @ (B, H, Dh, T) -> (B, H, T, T)
         var scores = torch.matmul(q, k.transpose(-2, -1)) / Math.Sqrt(headDim);
 
-        // Aplicar máscara causal: impede atenção a tokens futuros
-        // Pega a sub-máscara relevante para o tamanho T atual, e adiciona dims para batch e heads
-        // current_mask tem shape (maxSeqLen, maxSeqLen). Fatiamos para (T, T)
-        // Depois adicionamos unsqueeze para obter (1, 1, T, T) para broadcasting
-        var causalMaskSlice = current_mask[$":{T}", $":{T}"].unsqueeze(0).unsqueeze(0); // (1, 1, T, T)
+        var causalMaskSlice = current_mask[$":{T}", $":{T}"].unsqueeze(0).unsqueeze(0);
         scores = scores.masked_fill(causalMaskSlice, float.NegativeInfinity);
 
-        // Aplicar softmax para obter pesos de atenção
-        var attn = torch.nn.functional.softmax(scores, dim: -1);
-        // Aplicar dropout na atenção (comum em Transformers)
-        // Usar this.training para aplicar dropout apenas durante o treino
-        attn = dropout.forward(attn);
+        var attn_weights = torch.nn.functional.softmax(scores, dim: -1);
 
-        // Calcular saída ponderada: Attention * V
-        // (B, H, T, T) @ (B, H, T, Dh) -> (B, H, T, Dh)
-        var outTensor = torch.matmul(attn, v);
+        // A chamada dropout.forward(attn_weights) está correta, usando a instância do módulo Dropout
+        var attn_output_weighted = dropout.forward(attn_weights);
 
-        // Remodelar de volta para (B, T, D)
+
+        var outTensor = torch.matmul(attn_output_weighted, v);
         outTensor = outTensor.transpose(1, 2).contiguous().view(B, T, D);
 
-        // Projeção final
         return proj.forward(outTensor);
     }
 }
