@@ -8,13 +8,21 @@ namespace LLM.Hosts;
 
 public class Startup
 {
-    static Tokenizer tokenizer = new Tokenizer("tokenizer.json");
-    static TransformerModel model = new TransformerModel("GPTMini", tokenizer.MaxVocabSize);
-    Trainer trainer = new Trainer(model, tokenizer);
+    static Tokenizer tokenizer = new Tokenizer(
+        Path.Combine(
+            Directory.GetCurrentDirectory(), "Vocabularys", "tokenizer.json"));
+    static TransformerModel model = new TransformerModel("Ninfa.AI", tokenizer.GetVocabSize());
+    Trainer trainer = new Trainer(model, tokenizer, new TrainerOptions(
+        8,
+        64,
+        10,
+        1e-4,
+        Path.Combine(Directory.GetCurrentDirectory(), "Model", "Ninfa.pt")));
 
     public void ConfigureServices(IServiceCollection services)
     {
-        model.Load("modelo_transformer.pt");
+        
+        model.Load(Path.Combine(Directory.GetCurrentDirectory(), "Model", "Ninfa.pt"));
         model.eval();
     }
 
@@ -31,7 +39,7 @@ public class Startup
 
         app.UseEndpoints(endpoints =>
         {
-            endpoints.MapGet("/", () => { return $"Ninfa AI Is Running ... ! {DateTime.Now}"; });
+            endpoints.MapGet("/", () => { return $"Ninfa.AI Is Running ... ! {DateTime.Now}"; });
 
             endpoints.MapPost("/train", async (List<TreinamentExample> exemplos) =>
             {

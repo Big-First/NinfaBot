@@ -29,6 +29,7 @@
       <Folder Include="Generics\" />
       <Folder Include="Services\" />
       <Folder Include="Systems\" />
+      <Folder Include="Vocabularys\" />
     </ItemGroup>
 
 </Project>

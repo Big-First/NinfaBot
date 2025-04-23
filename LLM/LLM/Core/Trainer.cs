@@ -1,22 +1,13 @@
 ﻿// --- START OF FILE Trainer.cs ---
 using TorchSharp;
 using static TorchSharp.torch;
+using static TorchSharp.torch.optim;
 using static TorchSharp.torch.nn;
 using System; // Para Guid
 using System.Collections.Generic; // Para List
 using System.Linq; // Para Linq
 
 namespace LLM.Core;
-
-public class TrainerOptions
-{
-    public int BatchSize { get; set; } = 8;
-    public int MaxSeqLen { get; set; } = 64; // Deve corresponder ou ser menor que o maxSeqLen do modelo
-    public int Epochs { get; set; } = 5;
-    public double LearningRate { get; set; } = 1e-4;
-    public string SavePath { get; set; } = "modelo_treinado.pt";
-    // Adicione outros hiperparâmetros conforme necessário (ex: weight decay)
-}
 
 public class Trainer
 {

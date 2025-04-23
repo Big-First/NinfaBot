@@ -10,31 +10,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a56b0289-a745-4c88-a4d9-d5d5430aa01d" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/LLM/Core/FeedForward.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/LLM/Core/MultiHeadSelfAttention.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/LLM/Core/SamplingUtils.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/LLM/Core/Tokenizer.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/LLM/Core/Trainer.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/LLM/Core/TransformerBlock.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/LLM/Core/TransformerModel.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/LLM/Models/PromptRequest.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/LLM/Models/TreinamentExample.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/LLM/Core/TrainerOptions.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.LLM/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.LLM/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/Core/Trainer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/Core/Trainer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/Core/TransformerModel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/Core/TransformerModel.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LLM/Hosts/Startup.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/Hosts/Startup.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LLM/LLM.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/LLM.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/appsettings.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/appsettings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/Program.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfo.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfoInputs.cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.assets.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.assets.cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.csproj.AssemblyReference.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.csproj.AssemblyReference.cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.dgspec.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.dgspec.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.props" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.props" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.targets" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.targets" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/project.assets.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/project.assets.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/project.nuget.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/project.nuget.cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/project.packagespec.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/project.packagespec.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LLM/obj/rider.project.model.nuget.info" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/rider.project.model.nuget.info" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/rider.project.restore.info" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/rider.project.restore.info" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -168,7 +153,8 @@
       <option name="presentableId" value="Default" />
       <updated>1745294883803</updated>
       <workItem from="1745294885142" duration="878000" />
-      <workItem from="1745328378854" duration="11061000" />
+      <workItem from="1745328378854" duration="17217000" />
+      <workItem from="1745376227320" duration="712000" />
     </task>
     <servers />
   </component>
