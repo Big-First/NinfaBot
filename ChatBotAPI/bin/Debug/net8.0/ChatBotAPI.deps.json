@@ -156,12 +156,12 @@
           "runtimes/win-x64/native/libiomp5md.dll": {
             "rid": "win-x64",
             "assetType": "native",
-            "fileVersion": "5.0.2024.320"
+            "fileVersion": "0.0.0.0"
           },
           "runtimes/win-x64/native/libiompstubs5md.dll": {
             "rid": "win-x64",
             "assetType": "native",
-            "fileVersion": "5.0.2024.320"
+            "fileVersion": "0.0.0.0"
           },
           "runtimes/win-x64/native/torch.dll": {
             "rid": "win-x64",

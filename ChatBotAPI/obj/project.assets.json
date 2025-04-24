@@ -1241,35 +1241,25 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\MPLopes\\.nuget\\packages\\": {},
-    "H:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {},
-    "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet\\": {}
+    "/home/mplopes/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "I:\\NinfaBot\\ChatBotAPI\\ChatBotAPI.csproj",
+      "projectUniqueName": "/home/mplopes/Documentos/GitHub/NinfaBot/ChatBotAPI/ChatBotAPI.csproj",
       "projectName": "ChatBotAPI",
-      "projectPath": "I:\\NinfaBot\\ChatBotAPI\\ChatBotAPI.csproj",
-      "packagesPath": "C:\\Users\\MPLopes\\.nuget\\packages\\",
-      "outputPath": "I:\\NinfaBot\\ChatBotAPI\\obj\\",
+      "projectPath": "/home/mplopes/Documentos/GitHub/NinfaBot/ChatBotAPI/ChatBotAPI.csproj",
+      "packagesPath": "/home/mplopes/.nuget/packages/",
+      "outputPath": "/home/mplopes/Documentos/GitHub/NinfaBot/ChatBotAPI/obj/",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "H:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
-        "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet\\"
-      ],
       "configFilePaths": [
-        "C:\\Users\\MPLopes\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
+        "/home/mplopes/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\library-packs": {},
+        "/usr/share/dotnet/library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -1286,9 +1276,8 @@
       "restoreAuditProperties": {
         "enableAudit": "true",
         "auditLevel": "low",
-        "auditMode": "all"
-      },
-      "SdkAnalysisLevel": "9.0.100"
+        "auditMode": "direct"
+      }
     },
     "frameworks": {
       "net8.0": {
@@ -1326,6 +1315,12 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[8.0.15, 8.0.15]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.AspNetCore.App": {
             "privateAssets": "none"
@@ -1334,7 +1329,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.100/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/8.0.408/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
