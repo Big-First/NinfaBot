@@ -1,3 +1,5 @@
 .dll filter=lfs diff=lfs merge=lfs -text
 .dylib filter=lfs diff=lfs merge=lfs -text
 .so filter=lfs diff=lfs merge=lfs -text
+.pt filter=lfs diff=lfs merge=lfs -text
+AI/LLM/model/ninfa_py.pt filter=lfs diff=lfs merge=lfs -text

@@ -10,16 +10,27 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a56b0289-a745-4c88-a4d9-d5d5430aa01d" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/LLM/Core/TrainerOptions.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.LLM/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.LLM/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/Core/Trainer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/Core/Trainer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/Core/TransformerModel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/Core/TransformerModel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/Hosts/Startup.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/Hosts/Startup.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/LLM.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/LLM.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/Program.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/app.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/core/data_models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/core/feed_forward.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/core/multi_head_self_attention.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/core/padding_helper.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/core/tokenizer_py.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/core/trainer_options.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/core/trainer_py.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/core/transformer_block.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/core/transformer_model.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../AI/LLM/utils/sampling_utils.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfo.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.AssemblyInfoInputs.cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LLM/obj/rider.project.model.nuget.info" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/rider.project.model.nuget.info" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.assets.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/Debug/net8.0/LLM.assets.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.dgspec.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.dgspec.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.props" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/LLM.csproj.nuget.g.props" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/project.assets.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/project.assets.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/project.nuget.cache" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/project.nuget.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/project.packagespec.json" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/project.packagespec.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LLM/obj/rider.project.restore.info" beforeDir="false" afterPath="$PROJECT_DIR$/LLM/obj/rider.project.restore.info" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -155,6 +166,7 @@
       <workItem from="1745294885142" duration="878000" />
       <workItem from="1745328378854" duration="17217000" />
       <workItem from="1745376227320" duration="712000" />
+      <workItem from="1745504446449" duration="4586000" />
     </task>
     <servers />
   </component>
