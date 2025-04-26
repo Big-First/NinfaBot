@@ -82,7 +82,7 @@ class Tokenizer:
             print("AVISO: GetEosTokenId chamado, mas EOS Token ID não foi encontrado durante a inicialização.")
         return self.EOS_ID
 
-    def GetPadTokenId(self) -> int:
+    def GetPadTokenId(self):
         """
          Obtém o ID do token de padding (PAD).
         """

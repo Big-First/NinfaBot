@@ -1,5 +1,3 @@
-# app.py - Aplicação Flask com HTTP e WebSocket para LLM
-
 import torch
 import os
 import json
@@ -179,7 +177,7 @@ def handle_input_http():
 
     # Verificar se modelo e tokenizer estão disponíveis
     if model is None or tokenizer is None:
-         return jsonify({"error": "Servidor não configurado corretamente (modelo/tokenizer indisponível)."}), 500
+        return jsonify({"error": "Servidor não configurado corretamente (modelo/tokenizer indisponível)."}), 500
 
     # Obter dados da requisição JSON
     request_data = request.json
@@ -199,7 +197,9 @@ def handle_input_http():
     # --- Lógica de Geração (Inferência) ---
     try:
         # SamplingUtils é acessível aqui (importado no topo)
+        print("Input: ", prompt_text)
         generated_text = generate_text_inference(prompt_text, max_new_tokens, temperature, top_k, top_p, model, tokenizer)
+        print("Response: ", generated_text)
         return jsonify({"response": generated_text})
     except Exception as e:
         print(f"Erro durante a geração HTTP: {e}")
@@ -350,3 +350,4 @@ if __name__ == '__main__':
     # Agora rode o servidor SocketIO com as instâncias globais `app` e `socketio`
     # Use debug=True para ver logs detalhados
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+

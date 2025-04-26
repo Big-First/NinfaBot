@@ -7,10 +7,6 @@ using static TorchSharp.torch.nn;
 
 namespace AI.Core
 {
-    /// <summary>
-    /// Implements a neural network model using TorchSharp with LSTM architecture and dropout regularization.
-    /// This model is designed for sequence processing tasks, particularly text generation or classification.
-    /// </summary>
     public class TorchSharpModel : Module<Tensor, Tensor>
     {
         /// <summary>

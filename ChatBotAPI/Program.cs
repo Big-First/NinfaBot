@@ -32,11 +32,11 @@ Console.WriteLine("--- Calculating Max Tokens from Training Data ---");
 /// <summary>
 /// Número máximo de tokens calculado para o modelo
 /// </summary>
-int calculatedMaxTokens = 50; // Valor padrão inicial razoável
+int calculatedMaxTokens = 1050; // Valor padrão inicial razoável
 /// <summary>
 /// Valor padrão de tokens caso o cálculo falhe
 /// </summary>
-int defaultMaxTokens = 50; // Default se cálculo falhar
+int defaultMaxTokens = 1050; // Default se cálculo falhar
 /// <summary>
 /// Percentil alvo para cálculo de tokens (95%)
 /// </summary>
@@ -44,7 +44,7 @@ int percentileTarget = 95; // Usar o 95º percentil
 /// <summary>
 /// Margem de segurança para tokens
 /// </summary>
-int bufferTokens = 10; // Adicionar uma margem
+int bufferTokens = 100; // Adicionar uma margem
 /// <summary>
 /// Limite superior absoluto de tokens
 /// </summary>
